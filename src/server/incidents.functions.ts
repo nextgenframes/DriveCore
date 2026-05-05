@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { z } from "zod";
 
 const InputSchema = z.object({
@@ -61,10 +61,9 @@ const SYSTEM_PROMPT = `You are AVISYS, a multi-agent AI safety analyst for auton
 Be specific, technical, and concise. If input is sparse, infer plausible AV-domain causes but mark uncertainty. Always call submit_analysis with the structured result.`;
 
 export const analyzeIncident = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => InputSchema.parse(d))
-  .handler(async ({ data, context }) => {
-    const { supabase } = context;
+  .handler(async ({ data }) => {
+    const supabase = supabaseAdmin;
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
 

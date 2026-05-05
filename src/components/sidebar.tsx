@@ -28,7 +28,7 @@ export function Sidebar({ user }: { user: User | null }) {
             <Radar className="h-5 w-5" />
           </div>
           <div>
-            <div className="font-bold tracking-tight leading-none">AVISYS</div>
+            <div className="font-bold tracking-tight leading-none">EventDash</div>
             <div className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1">Safety Console</div>
           </div>
         </Link>

@@ -27,7 +27,7 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "AVISYS — AV Safety Incident Analysis" },
+      { title: "EventDash — AV Safety Incident Analysis" },
       { name: "description", content: "AI-powered analysis of autonomous vehicle incidents, near misses, and safety logs." },
     ],
     links: [{ rel: "stylesheet", href: appCss }, { rel: "preconnect", href: "https://fonts.googleapis.com" }, { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" }],

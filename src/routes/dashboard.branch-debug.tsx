@@ -902,8 +902,31 @@ function StatCell({ label, value, highlight }: { label: string; value: number; h
   );
 }
 
+type JiraConfig = {
+  baseUrl: string;
+  projectKey: string;
+  assignee: string;
+  labels: string;
+  components: string;
+};
+
+const JIRA_CONFIG_KEY = "branchdebug.jiraConfig";
+
+function loadJiraConfig(): JiraConfig {
+  if (typeof window === "undefined") return { baseUrl: "", projectKey: "", assignee: "", labels: "", components: "" };
+  try {
+    const raw = localStorage.getItem(JIRA_CONFIG_KEY);
+    if (raw) return { baseUrl: "", projectKey: "", assignee: "", labels: "", components: "", ...JSON.parse(raw) };
+  } catch {}
+  // migrate old key
+  const oldBase = localStorage.getItem("branchdebug.jiraBaseUrl") || "";
+  return { baseUrl: oldBase, projectKey: "", assignee: "", labels: "", components: "" };
+}
+
 function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "snippet" | "unknown" }) {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  const [jiraOpen, setJiraOpen] = useState(false);
+  const [jira, setJira] = useState<JiraConfig>(() => loadJiraConfig());
 
   const download = (filename: string, content: string, mime: string) => {
     const blob = new Blob([content], { type: mime });

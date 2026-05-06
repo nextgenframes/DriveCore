@@ -313,7 +313,7 @@ index aaa..bbb 100644
               className="h-12 w-12 rounded-xl flex items-center justify-center text-xl shrink-0"
               style={{ background: step.color + "20", color: step.color, border: `1px solid ${step.color}40` }}
             >
-              {step.icon}
+              <step.Icon className="h-6 w-6" />
             </div>
             <div className="space-y-1">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">

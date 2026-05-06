@@ -157,11 +157,14 @@ function parseDiff(diff: string): Hunk[] {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const fileMatch = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
-    if (fileMatch) { currentFile = fileMatch[2]; continue; }
+    const gitMatch = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
+    if (gitMatch) { currentFile = gitMatch[2]; continue; }
+    const plusFile = line.match(/^\+\+\+ (?:b\/)?(.+?)(?:\s|$)/);
+    if (plusFile && plusFile[1] !== "/dev/null") { currentFile = plusFile[1]; continue; }
 
     const hunkHeader = line.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@(.*)$/);
-    if (hunkHeader && currentFile) {
+    if (hunkHeader) {
+      if (!currentFile) currentFile = "unknown";
       const newStart = parseInt(hunkHeader[1], 10);
       const newCount = parseInt(hunkHeader[2] ?? "1", 10);
       const fnCtx = hunkHeader[3].trim() || null;

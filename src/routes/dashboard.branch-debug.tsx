@@ -221,6 +221,7 @@ index aaa..bbb 100644
           result={result} analyzing={analyzing}
           onRun={runAnalysis} onSample={loadSample}
           editorBase={editorBase} setEditorBase={(v) => { setEditorBase(v); localStorage.setItem("branchdebug.editorBase", v); }}
+          detected={detected} language={language} setLanguage={setLanguage}
         />
       )}
 

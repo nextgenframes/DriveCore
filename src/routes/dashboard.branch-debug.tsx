@@ -579,11 +579,17 @@ function AnalyzerView({
               </select>
             </div>
           )}
-          {detected !== "unknown" && (
+          {detected === "unknown" ? (
+            diff.trim().length > 0 && (
+              <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
+                ⏳ Detecting input type — paste at least a few lines to auto-classify as diff or snippet.
+              </p>
+            )
+          ) : (
             <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
               {detected === "diff"
-                ? "⎇ Diff mode — AI maps changed lines → failure → ranked suspects."
-                : "{} Snippet mode — AI analyzes this code directly for bugs matching your failure. No diff needed."}
+                ? `⎇ Diff mode · ${diff.split("\n").length} lines · AI will map changed lines to ranked suspects.`
+                : `{} Snippet mode · ${diff.split("\n").length} lines · AI will scan this code directly for bugs matching your failure.`}
             </p>
           )}
         </div>

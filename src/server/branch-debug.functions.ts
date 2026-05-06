@@ -322,5 +322,6 @@ export const debugBranch = createServerFn({ method: "POST" })
       summary: restore(parsed.summary, reverseMap),
       suspects,
       sanitizationStats: stats,
+      audit,
     };
   });

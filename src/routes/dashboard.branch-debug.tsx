@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { GitBranch, Play, RotateCcw, Shield, ChevronLeft, ChevronRight, Check, Loader2, Sparkles, FileCode, ExternalLink, Copy, Eye, ArrowRight } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { debugBranch, type DebugResult, type Suspect } from "@/server/branch-debug.functions";
+import { debugBranch, debugSnippet, type DebugResult, type Suspect } from "@/server/branch-debug.functions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
@@ -15,6 +15,25 @@ export const Route = createFileRoute("/dashboard/branch-debug")({
 });
 
 type Zone = "user" | "server" | "ai";
+
+const LANGUAGES = [
+  { id: "auto", label: "Auto-detect language" },
+  { id: "python", label: "Python" },
+  { id: "cpp", label: "C / C++" },
+  { id: "typescript", label: "TypeScript / JS" },
+  { id: "rust", label: "Rust" },
+  { id: "go", label: "Go" },
+  { id: "java", label: "Java" },
+];
+
+function detectInputType(text: string): "diff" | "snippet" | "unknown" {
+  if (!text || text.trim().length < 10) return "unknown";
+  const lines = text.trim().split("\n");
+  const diffHeaders = lines.filter((l) => /^(diff --git|---\s|\+\+\+\s|@@\s|index [a-f0-9])/.test(l)).length;
+  const diffLines = lines.filter((l) => /^[+\-](?![+\-])/.test(l)).length;
+  if (diffHeaders >= 1 || (diffLines / lines.length > 0.3 && diffLines >= 3)) return "diff";
+  return "snippet";
+}
 
 const STEPS: {
   id: number; label: string; sublabel: string; color: string; icon: string;
@@ -113,16 +132,21 @@ function BranchDebugPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [editorBase, setEditorBase] = useState(() => localStorage.getItem("branchdebug.editorBase") ?? "vscode://file/");
   const debugFn = useServerFn(debugBranch);
+  const snippetFn = useServerFn(debugSnippet);
+  const [language, setLanguage] = useState("auto");
+  const detected = detectInputType(diff);
 
   const runAnalysis = async () => {
     if (!diff.trim() || !failure.trim()) {
-      toast.error("Provide both a diff and a failure description.");
+      toast.error("Provide both code and a failure description.");
       return;
     }
     setAnalyzing(true);
     setResult(null);
     try {
-      const res = await debugFn({ data: { diff, failureDescription: failure } });
+      const res = detected === "snippet"
+        ? await snippetFn({ data: { snippet: diff, failureDescription: failure, language: language === "auto" ? undefined : language } })
+        : await debugFn({ data: { diff, failureDescription: failure } });
       setResult(res);
       toast.success(`Found ${res.suspects.length} suspect${res.suspects.length === 1 ? "" : "s"}`);
     } catch (e: any) {
@@ -197,6 +221,7 @@ index aaa..bbb 100644
           result={result} analyzing={analyzing}
           onRun={runAnalysis} onSample={loadSample}
           editorBase={editorBase} setEditorBase={(v) => { setEditorBase(v); localStorage.setItem("branchdebug.editorBase", v); }}
+          detected={detected} language={language} setLanguage={setLanguage}
         />
       )}
 
@@ -507,28 +532,60 @@ const CONFIDENCE_STYLES = {
 
 function AnalyzerView({
   diff, setDiff, failure, setFailure, result, analyzing, onRun, onSample, editorBase, setEditorBase,
+  detected, language, setLanguage,
 }: {
   diff: string; setDiff: (v: string) => void;
   failure: string; setFailure: (v: string) => void;
   result: DebugResult | null; analyzing: boolean;
   onRun: () => void; onSample: () => void;
   editorBase: string; setEditorBase: (v: string) => void;
+  detected: "diff" | "snippet" | "unknown";
+  language: string; setLanguage: (v: string) => void;
 }) {
   return (
     <div className="flex-1 grid grid-cols-1 lg:grid-cols-[480px_1fr] min-h-0 overflow-hidden">
       {/* Input panel */}
       <div className="border-r border-border overflow-y-auto p-6 space-y-4 bg-surface/20">
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Unified git diff</label>
-            <button onClick={onSample} className="text-[10px] font-mono uppercase tracking-widest text-primary hover:underline">Load sample</button>
+          <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+            <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Git diff or code snippet</label>
+            <div className="flex items-center gap-2">
+              {detected !== "unknown" && (
+                <span className={cn(
+                  "text-[9px] font-mono uppercase tracking-widest px-2 py-0.5 rounded border",
+                  detected === "diff" ? "border-purple-400/40 bg-purple-400/10 text-purple-300" : "border-primary/40 bg-primary/10 text-primary"
+                )}>
+                  {detected === "diff" ? "⎇ git diff" : "{} snippet"}
+                </span>
+              )}
+              <button onClick={onSample} className="text-[10px] font-mono uppercase tracking-widest text-primary hover:underline">Load sample</button>
+            </div>
           </div>
           <Textarea
             value={diff}
             onChange={(e) => setDiff(e.target.value)}
-            placeholder="Paste output of `git diff main..feature/...`"
+            placeholder={"Paste a git diff (git diff main..feature/...) — OR — paste a raw code snippet and we'll analyze it directly."}
             className="font-mono text-xs h-64 resize-none bg-background"
           />
+          {detected === "snippet" && (
+            <div className="mt-2 flex items-center gap-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Language</label>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                className="text-[11px] font-mono px-2 py-1 rounded-md bg-background border border-border focus:border-primary outline-none"
+              >
+                {LANGUAGES.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+              </select>
+            </div>
+          )}
+          {detected !== "unknown" && (
+            <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
+              {detected === "diff"
+                ? "⎇ Diff mode — AI maps changed lines → failure → ranked suspects."
+                : "{} Snippet mode — AI analyzes this code directly for bugs matching your failure. No diff needed."}
+            </p>
+          )}
         </div>
         <div>
           <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2 block">Failure description</label>
@@ -550,7 +607,7 @@ function AnalyzerView({
           <p className="text-[10px] text-muted-foreground mt-1">Used to jump directly to suspect lines in your editor.</p>
         </div>
         <Button onClick={onRun} disabled={analyzing} className="w-full gap-2">
-          {analyzing ? <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing…</> : <><Sparkles className="h-4 w-4" /> Analyze branch</>}
+          {analyzing ? <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing…</> : <><Sparkles className="h-4 w-4" /> Analyze {detected === "snippet" ? "snippet" : detected === "diff" ? "diff" : "code"}</>}
         </Button>
         <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-3 flex gap-2 text-[11px] text-muted-foreground">
           <Shield className="h-3.5 w-3.5 text-yellow-500 shrink-0 mt-0.5" />

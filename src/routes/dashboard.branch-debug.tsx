@@ -872,15 +872,23 @@ function AuditModalTrigger({ audit, stats }: { audit: DebugResult["audit"]; stat
                   <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 overflow-hidden">
                     <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest bg-yellow-500/10 border-b border-yellow-500/30 text-yellow-500">Sent to AI (sanitized)</div>
                     <pre className="text-[11px] font-mono p-3 leading-relaxed whitespace-pre overflow-x-auto">
-                      {sampleSanitizedLines.map((l, i) => (
-                        <div key={i} className="flex">
-                          <span className="text-muted-foreground/40 w-8 shrink-0 select-none">{i + 1}</span>
-                          <span dangerouslySetInnerHTML={{
-                            __html: (l || " ").replace(/(fn_\d{4})/g, '<span class="text-primary">$1</span>')
-                              .replace(/(\[SECRET_REDACTED\])/g, '<span class="text-severity-critical font-bold">$1</span>')
-                          }} />
-                        </div>
-                      ))}
+                      {sampleSanitizedLines.map((l, i) => {
+                        const safe = (l || " ")
+                          .replace(/&/g, "&amp;")
+                          .replace(/</g, "&lt;")
+                          .replace(/>/g, "&gt;")
+                          .replace(/"/g, "&quot;")
+                          .replace(/'/g, "&#39;");
+                        const html = safe
+                          .replace(/(fn_\d{4})/g, '<span class="text-primary">$1</span>')
+                          .replace(/(\[SECRET_REDACTED\])/g, '<span class="text-severity-critical font-bold">$1</span>');
+                        return (
+                          <div key={i} className="flex">
+                            <span className="text-muted-foreground/40 w-8 shrink-0 select-none">{i + 1}</span>
+                            <span dangerouslySetInnerHTML={{ __html: html }} />
+                          </div>
+                        );
+                      })}
                     </pre>
                   </div>
                 </div>

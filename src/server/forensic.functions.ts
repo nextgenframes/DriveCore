@@ -1,6 +1,46 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { sanitize, restore } from "./branch-debug.functions";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+
+// ───────────────────────── SSRF Guard ─────────────────────────
+// Reject loopback, private (RFC1918), link-local, and cloud metadata addresses
+// before any server-side fetch of a user-supplied URL.
+function assertSafePublicUrl(raw: string): URL {
+  let u: URL;
+  try { u = new URL(raw); } catch { throw new Response("Invalid URL", { status: 400 }); }
+  if (u.protocol !== "https:" && u.protocol !== "http:") {
+    throw new Response("Only http(s) URLs are allowed", { status: 400 });
+  }
+  const host = u.hostname.toLowerCase();
+  // Block obvious literals
+  const blockedHosts = new Set([
+    "localhost", "127.0.0.1", "0.0.0.0", "::1",
+    "169.254.169.254", "metadata.google.internal", "metadata.goog",
+  ]);
+  if (blockedHosts.has(host)) throw new Response("Host not allowed", { status: 400 });
+  // Block IPv4 private/reserved ranges
+  const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4) {
+    const [a, b] = ipv4.slice(1).map(Number);
+    if (
+      a === 10 ||
+      a === 127 ||
+      a === 0 ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 169 && b === 254) ||
+      a >= 224 // multicast/reserved
+    ) throw new Response("Private/reserved IP not allowed", { status: 400 });
+  }
+  // Block IPv6 loopback / link-local / unique-local
+  if (host.includes(":")) {
+    if (host === "::1" || host.startsWith("fe80:") || host.startsWith("fc") || host.startsWith("fd")) {
+      throw new Response("Private IPv6 not allowed", { status: 400 });
+    }
+  }
+  return u;
+}
 
 // ───────────────────────── Types ─────────────────────────
 
@@ -79,6 +119,7 @@ const ConnectSchema = z.object({
 });
 
 export const testVehicleConnection = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ConnectSchema.parse(d))
   .handler(async ({ data }) => {
     const results: Record<string, any> = {};
@@ -86,6 +127,7 @@ export const testVehicleConnection = createServerFn({ method: "POST" })
 
     if (data.manifestUrl) {
       try {
+        assertSafePublicUrl(data.manifestUrl);
         const url = `${data.manifestUrl.replace(/\/$/, "")}/vehicles/${encodeURIComponent(data.vehicleId)}/manifest`;
         const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
         results.manifestReachable = res.ok;
@@ -93,8 +135,11 @@ export const testVehicleConnection = createServerFn({ method: "POST" })
         if (res.ok) {
           const m = await res.json().catch(() => null);
           if (m && typeof m === "object") {
-            results.deployedCommit = (m as any).commit ?? null;
-            results.branch = (m as any).branch ?? null;
+            // Only reflect known typed fields back to caller
+            const commit = (m as any).commit;
+            const branch = (m as any).branch;
+            results.deployedCommit = typeof commit === "string" ? commit.slice(0, 80) : null;
+            results.branch = typeof branch === "string" ? branch.slice(0, 80) : null;
           }
         }
       } catch (e) {
@@ -134,6 +179,7 @@ const FetchSchema = z.object({
 });
 
 export const fetchVehicleCode = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => FetchSchema.parse(d))
   .handler(async ({ data }): Promise<FetchedCode> => {
     const warnings: string[] = [];
@@ -144,6 +190,7 @@ export const fetchVehicleCode = createServerFn({ method: "POST" })
     // Strategy 1: manifest endpoint
     if (!commit && data.manifestUrl) {
       try {
+        assertSafePublicUrl(data.manifestUrl);
         const url = `${data.manifestUrl.replace(/\/$/, "")}/vehicles/${encodeURIComponent(data.vehicleId)}/manifest`;
         const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
         if (r.ok) {
@@ -413,6 +460,7 @@ function deepRestore(value: any, rev: Map<string, string>): any {
 }
 
 export const runForensicStage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => StageInput.parse(d))
   .handler(async ({ data }): Promise<{ result: StageResult; sanitizationStats: { identifiersTokenized: number; commentsStripped: number; secretsBlocked: number } }> => {
     const apiKey = process.env.LOVABLE_API_KEY;

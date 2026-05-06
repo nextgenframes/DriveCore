@@ -1264,14 +1264,17 @@ function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "
               </button>
               <button
                 onClick={copyJiraLink}
-                className="h-8 px-3 rounded-md border border-[#2684ff]/40 bg-[#2684ff]/10 hover:bg-[#2684ff]/20 text-[#2684ff] text-[10px] font-mono uppercase tracking-widest flex items-center gap-1"
-                title="Copy the full Jira create-issue URL with all parameters"
+                disabled={hasJiraErrors}
+                className="h-8 px-3 rounded-md border border-[#2684ff]/40 bg-[#2684ff]/10 hover:bg-[#2684ff]/20 text-[#2684ff] text-[10px] font-mono uppercase tracking-widest flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#2684ff]/10"
+                title={hasJiraErrors ? "Fix the highlighted fields first" : "Copy the full Jira create-issue URL with all parameters"}
               >
                 <Link2 className="h-3 w-3" /> Copy link
               </button>
               <button
                 onClick={createJiraTicket}
-                className="h-8 px-3 rounded-md bg-[#2684ff] hover:bg-[#2684ff]/90 text-white text-[10px] font-mono uppercase tracking-widest flex items-center gap-1"
+                disabled={hasJiraErrors}
+                className="h-8 px-3 rounded-md bg-[#2684ff] hover:bg-[#2684ff]/90 text-white text-[10px] font-mono uppercase tracking-widest flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#2684ff]"
+                title={hasJiraErrors ? "Fix the highlighted fields first" : undefined}
               >
                 <ExternalLink className="h-3 w-3" /> Open in Jira
               </button>

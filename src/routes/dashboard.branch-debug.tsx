@@ -103,6 +103,57 @@ function BranchDebugPage() {
   const step = STEPS[active];
   const zone = ZONES[step.zone];
 
+  // ─── Analyzer state ───
+  const [tab, setTab] = useState<"analyzer" | "howto">("analyzer");
+  const [diff, setDiff] = useState("");
+  const [failure, setFailure] = useState("");
+  const [result, setResult] = useState<DebugResult | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [editorBase, setEditorBase] = useState(() => localStorage.getItem("branchdebug.editorBase") ?? "vscode://file/");
+  const debugFn = useServerFn(debugBranch);
+
+  const runAnalysis = async () => {
+    if (!diff.trim() || !failure.trim()) {
+      toast.error("Provide both a diff and a failure description.");
+      return;
+    }
+    setAnalyzing(true);
+    setResult(null);
+    try {
+      const res = await debugFn({ data: { diff, failureDescription: failure } });
+      setResult(res);
+      toast.success(`Found ${res.suspects.length} suspect${res.suspects.length === 1 ? "" : "s"}`);
+    } catch (e: any) {
+      toast.error(e.message ?? "Analysis failed");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const loadSample = () => {
+    setDiff(`diff --git a/payments/AmexValidator.py b/payments/AmexValidator.py
+index 1a2b3c4..5d6e7f8 100644
+--- a/payments/AmexValidator.py
++++ b/payments/AmexValidator.py
+@@ -10,7 +10,7 @@ class AmexValidator:
+     def validate_card(self, card_number):
+         # Amex cards are 15 digits
+-        if len(card_number) > 15:
++        if len(card_number) > 16:
+             return False
+         return self._luhn_check(card_number)
+diff --git a/checkout/handler.py b/checkout/handler.py
+index aaa..bbb 100644
+--- a/checkout/handler.py
++++ b/checkout/handler.py
+@@ -42,6 +42,7 @@ def process_checkout(payload):
+     validator = AmexValidator()
++    payload = sanitize_payload(payload)
+     if not validator.validate_card(payload["card"]):
+         raise ValueError("Invalid card")`);
+    setFailure("API throwing 500 on /checkout after deploy. Card validation seems broken for Amex cards.");
+  };
+
   return (
     <>
       <header className="h-16 border-b border-border flex items-center justify-between px-8 bg-surface/40 backdrop-blur">
@@ -112,7 +163,37 @@ function BranchDebugPage() {
             <GitBranch className="h-4 w-4 text-primary" /> Branch Debug
           </h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1 p-1 rounded-lg bg-surface border border-border">
+          <button
+            onClick={() => setTab("analyzer")}
+            className={cn("px-3 py-1.5 rounded-md text-xs font-mono uppercase tracking-widest transition-colors",
+              tab === "analyzer" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
+          >
+            <Sparkles className="h-3 w-3 inline mr-1.5" /> Analyzer
+          </button>
+          <button
+            onClick={() => setTab("howto")}
+            className={cn("px-3 py-1.5 rounded-md text-xs font-mono uppercase tracking-widest transition-colors",
+              tab === "howto" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
+          >
+            How it works
+          </button>
+        </div>
+      </header>
+
+      {tab === "analyzer" && (
+        <AnalyzerView
+          diff={diff} setDiff={setDiff}
+          failure={failure} setFailure={setFailure}
+          result={result} analyzing={analyzing}
+          onRun={runAnalysis} onSample={loadSample}
+          editorBase={editorBase} setEditorBase={(v) => { setEditorBase(v); localStorage.setItem("branchdebug.editorBase", v); }}
+        />
+      )}
+
+      {tab === "howto" && (
+      <>
+      <div className="px-8 py-3 border-b border-border flex justify-end gap-2 bg-surface/20">
           <button
             onClick={handlePlay}
             className="flex items-center gap-2 px-3 py-2 rounded-md text-xs font-mono uppercase tracking-widest border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
@@ -126,7 +207,6 @@ function BranchDebugPage() {
             <RotateCcw className="h-3 w-3" /> Reset
           </button>
         </div>
-      </header>
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[360px_1fr] min-h-0 overflow-hidden">
         {/* Left: pipeline */}

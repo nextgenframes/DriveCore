@@ -457,7 +457,10 @@ function AnalyzerView({
         {result && (
           <>
             <div className="rounded-xl border border-border bg-surface/60 p-5 space-y-3">
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Verdict</div>
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Verdict</div>
+                <AuditModalTrigger audit={result.audit} stats={result.sanitizationStats} />
+              </div>
               <p className="text-sm leading-relaxed">{result.summary}</p>
               <div className="flex flex-wrap gap-3 text-[10px] font-mono uppercase tracking-wider text-muted-foreground pt-2 border-t border-border">
                 <span><Shield className="h-3 w-3 inline mr-1 text-yellow-500" />{result.sanitizationStats.identifiersTokenized} identifiers tokenized</span>

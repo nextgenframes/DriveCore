@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 const InputSchema = z.object({
@@ -322,6 +323,7 @@ export async function analyzeDiff(diff: string, failureDescription: string): Pro
 }
 
 export const debugBranch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => InputSchema.parse(d))
   .handler(async ({ data }): Promise<DebugResult> => {
     return analyzeDiff(data.diff, data.failureDescription);
@@ -442,6 +444,7 @@ export async function analyzeSnippet(
 }
 
 export const debugSnippet = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => SnippetInputSchema.parse(d))
   .handler(async ({ data }): Promise<DebugResult> => {
     return analyzeSnippet(data.snippet, data.failureDescription, data.language);

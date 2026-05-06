@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 const InputSchema = z.object({
@@ -61,18 +62,21 @@ const SYSTEM_PROMPT = `You are EventDash, a multi-agent AI safety analyst for au
 Be specific, technical, and concise. If input is sparse, infer plausible AV-domain causes but mark uncertainty. Always call submit_analysis with the structured result.`;
 
 export const analyzeIncident = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => InputSchema.parse(d))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const supabase = supabaseAdmin;
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
 
+    // Ownership-scoped fetch — RLS-equivalent guard even with admin client
     const { data: incident, error: fetchErr } = await supabase
       .from("incidents")
       .select("*")
       .eq("id", data.incidentId)
+      .eq("user_id", context.userId)
       .single();
-    if (fetchErr || !incident) throw new Error("Incident not found");
+    if (fetchErr || !incident) throw new Response("Incident not found", { status: 404 });
 
     await supabase.from("incidents").update({ status: "analyzing", error: null }).eq("id", data.incidentId);
 

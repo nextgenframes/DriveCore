@@ -944,10 +944,46 @@ function loadJiraConfig(): JiraConfig {
   return { ...fallback, baseUrl: oldBase };
 }
 
+const ALLOWED_ISSUE_TYPES = ["Bug", "Task", "Story", "Incident", "Epic", "Sub-task", "Improvement", "New Feature"];
+
+function validateJira(j: JiraConfig): { baseUrl?: string; issueType?: string } {
+  const errors: { baseUrl?: string; issueType?: string } = {};
+  const raw = j.baseUrl.trim();
+  if (!raw) {
+    errors.baseUrl = "Base URL is required";
+  } else {
+    try {
+      const u = new URL(raw);
+      if (u.protocol !== "https:" && u.protocol !== "http:") {
+        errors.baseUrl = "Must start with https:// or http://";
+      } else if (!u.hostname.includes(".")) {
+        errors.baseUrl = "Enter a full hostname (e.g. acme.atlassian.net)";
+      } else if (u.search || u.hash || (u.pathname && u.pathname !== "/" && u.pathname !== "")) {
+        errors.baseUrl = "Use the base URL only — no path, query, or hash";
+      }
+    } catch {
+      errors.baseUrl = "Not a valid URL";
+    }
+  }
+  const it = j.issueType.trim();
+  if (it) {
+    if (it.length > 60) {
+      errors.issueType = "Issue type is too long";
+    } else if (!/^[A-Za-z][A-Za-z0-9 \-]*$/.test(it)) {
+      errors.issueType = "Letters, numbers, spaces and hyphens only";
+    } else if (!ALLOWED_ISSUE_TYPES.some((t) => t.toLowerCase() === it.toLowerCase())) {
+      errors.issueType = `Unknown type. Try: ${ALLOWED_ISSUE_TYPES.slice(0, 4).join(", ")}…`;
+    }
+  }
+  return errors;
+}
+
 function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "snippet" | "unknown" }) {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   const [jiraOpen, setJiraOpen] = useState(false);
   const [jira, setJira] = useState<JiraConfig>(() => loadJiraConfig());
+  const jiraErrors = validateJira(jira);
+  const hasJiraErrors = Object.keys(jiraErrors).length > 0;
 
   const download = (filename: string, content: string, mime: string) => {
     const blob = new Blob([content], { type: mime });
@@ -1084,9 +1120,11 @@ function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "
   };
 
   const createJiraTicket = async () => {
-    if (!jira.baseUrl) { toast.error("Jira base URL is required"); return; }
+    if (hasJiraErrors) {
+      toast.error(jiraErrors.baseUrl || jiraErrors.issueType || "Fix the highlighted fields");
+      return;
+    }
     persistJira();
-    // Also download the report files so the user can attach them after Jira opens
     exportMarkdown();
     exportJson();
     try {
@@ -1100,7 +1138,10 @@ function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "
   };
 
   const copyJiraLink = async () => {
-    if (!jira.baseUrl) { toast.error("Jira base URL is required"); return; }
+    if (hasJiraErrors) {
+      toast.error(jiraErrors.baseUrl || jiraErrors.issueType || "Fix the highlighted fields");
+      return;
+    }
     persistJira();
     try {
       await navigator.clipboard.writeText(buildJiraUrl());
@@ -1161,18 +1202,31 @@ function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "
             </p>
 
             <div className="grid grid-cols-2 gap-2">
-              {textFields.map((f) => (
-                <label key={f.key} className={f.key === "baseUrl" ? "col-span-2 block" : "block"}>
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{f.label}</span>
-                  <input
-                    type="text"
-                    value={jira[f.key]}
-                    onChange={(e) => setJira({ ...jira, [f.key]: e.target.value })}
-                    placeholder={f.placeholder}
-                    className="mt-1 w-full h-8 px-2 rounded-md bg-[#080c10] border border-border text-xs font-mono text-foreground focus:border-[#2684ff] outline-none"
-                  />
-                </label>
-              ))}
+              {textFields.map((f) => {
+                const err = f.key === "baseUrl" ? jiraErrors.baseUrl : f.key === "issueType" ? jiraErrors.issueType : undefined;
+                const isLong = f.key === "baseUrl";
+                return (
+                  <label key={f.key} className={isLong ? "col-span-2 block" : "block"}>
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{f.label}</span>
+                    <input
+                      type="text"
+                      value={jira[f.key]}
+                      onChange={(e) => setJira({ ...jira, [f.key]: e.target.value })}
+                      placeholder={f.placeholder}
+                      aria-invalid={!!err}
+                      aria-describedby={err ? `jira-${f.key}-err` : undefined}
+                      className={`mt-1 w-full h-8 px-2 rounded-md bg-[#080c10] border text-xs font-mono text-foreground outline-none ${
+                        err ? "border-red-500/60 focus:border-red-500" : "border-border focus:border-[#2684ff]"
+                      }`}
+                    />
+                    {err && (
+                      <span id={`jira-${f.key}-err`} className="mt-1 block text-[10px] font-mono text-red-400">
+                        {err}
+                      </span>
+                    )}
+                  </label>
+                );
+              })}
             </div>
 
             <label className="block">
@@ -1210,14 +1264,17 @@ function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "
               </button>
               <button
                 onClick={copyJiraLink}
-                className="h-8 px-3 rounded-md border border-[#2684ff]/40 bg-[#2684ff]/10 hover:bg-[#2684ff]/20 text-[#2684ff] text-[10px] font-mono uppercase tracking-widest flex items-center gap-1"
-                title="Copy the full Jira create-issue URL with all parameters"
+                disabled={hasJiraErrors}
+                className="h-8 px-3 rounded-md border border-[#2684ff]/40 bg-[#2684ff]/10 hover:bg-[#2684ff]/20 text-[#2684ff] text-[10px] font-mono uppercase tracking-widest flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#2684ff]/10"
+                title={hasJiraErrors ? "Fix the highlighted fields first" : "Copy the full Jira create-issue URL with all parameters"}
               >
                 <Link2 className="h-3 w-3" /> Copy link
               </button>
               <button
                 onClick={createJiraTicket}
-                className="h-8 px-3 rounded-md bg-[#2684ff] hover:bg-[#2684ff]/90 text-white text-[10px] font-mono uppercase tracking-widest flex items-center gap-1"
+                disabled={hasJiraErrors}
+                className="h-8 px-3 rounded-md bg-[#2684ff] hover:bg-[#2684ff]/90 text-white text-[10px] font-mono uppercase tracking-widest flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#2684ff]"
+                title={hasJiraErrors ? "Fix the highlighted fields first" : undefined}
               >
                 <ExternalLink className="h-3 w-3" /> Open in Jira
               </button>

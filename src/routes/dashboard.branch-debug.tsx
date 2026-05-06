@@ -113,16 +113,21 @@ function BranchDebugPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [editorBase, setEditorBase] = useState(() => localStorage.getItem("branchdebug.editorBase") ?? "vscode://file/");
   const debugFn = useServerFn(debugBranch);
+  const snippetFn = useServerFn(debugSnippet);
+  const [language, setLanguage] = useState("auto");
+  const detected = detectInputType(diff);
 
   const runAnalysis = async () => {
     if (!diff.trim() || !failure.trim()) {
-      toast.error("Provide both a diff and a failure description.");
+      toast.error("Provide both code and a failure description.");
       return;
     }
     setAnalyzing(true);
     setResult(null);
     try {
-      const res = await debugFn({ data: { diff, failureDescription: failure } });
+      const res = detected === "snippet"
+        ? await snippetFn({ data: { snippet: diff, failureDescription: failure, language: language === "auto" ? undefined : language } })
+        : await debugFn({ data: { diff, failureDescription: failure } });
       setResult(res);
       toast.success(`Found ${res.suspects.length} suspect${res.suspects.length === 1 ? "" : "s"}`);
     } catch (e: any) {

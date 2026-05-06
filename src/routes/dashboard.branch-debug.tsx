@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
-import { GitBranch, Play, RotateCcw, Shield, ChevronLeft, ChevronRight, Check, Loader2, Sparkles, FileCode, ExternalLink, Copy, Eye, ArrowRight } from "lucide-react";
+import { GitBranch, Play, RotateCcw, Shield, ChevronLeft, ChevronRight, Check, Loader2, Sparkles, FileCode, ExternalLink, Copy, Eye, ArrowRight, Download, FileJson, FileText } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { debugBranch, debugSnippet, type DebugResult, type Suspect } from "@/server/branch-debug.functions";
 import { Button } from "@/components/ui/button";
@@ -579,11 +579,17 @@ function AnalyzerView({
               </select>
             </div>
           )}
-          {detected !== "unknown" && (
+          {detected === "unknown" ? (
+            diff.trim().length > 0 && (
+              <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
+                ⏳ Detecting input type — paste at least a few lines to auto-classify as diff or snippet.
+              </p>
+            )
+          ) : (
             <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
               {detected === "diff"
-                ? "⎇ Diff mode — AI maps changed lines → failure → ranked suspects."
-                : "{} Snippet mode — AI analyzes this code directly for bugs matching your failure. No diff needed."}
+                ? `⎇ Diff mode · ${diff.split("\n").length} lines · AI will map changed lines to ranked suspects.`
+                : `{} Snippet mode · ${diff.split("\n").length} lines · AI will scan this code directly for bugs matching your failure.`}
             </p>
           )}
         </div>
@@ -638,9 +644,12 @@ function AnalyzerView({
         {result && (
           <>
             <div className="rounded-xl border border-border bg-surface/60 p-5 space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Verdict</div>
-                <AuditModalTrigger audit={result.audit} stats={result.sanitizationStats} />
+                <div className="flex items-center gap-2">
+                  <ExportButtons result={result} mode={detected} />
+                  <AuditModalTrigger audit={result.audit} stats={result.sanitizationStats} />
+                </div>
               </div>
               <p className="text-sm leading-relaxed">{result.summary}</p>
               <div className="flex flex-wrap gap-3 text-[10px] font-mono uppercase tracking-wider text-muted-foreground pt-2 border-t border-border">
@@ -883,6 +892,94 @@ function StatCell({ label, value, highlight }: { label: string; value: number; h
     <div className="px-6 py-3 border-r border-border last:border-r-0">
       <div className={cn("text-2xl font-bold tabular-nums", highlight ? "text-severity-critical" : "text-foreground")}>{value}</div>
       <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "snippet" | "unknown" }) {
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+
+  const download = (filename: string, content: string, mime: string) => {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${filename}`);
+  };
+
+  const exportJson = () => {
+    const payload = {
+      generatedAt: new Date().toISOString(),
+      mode,
+      summary: result.summary,
+      suspects: result.suspects,
+      sanitizationStats: result.sanitizationStats,
+    };
+    download(`branchdebug-report-${stamp}.json`, JSON.stringify(payload, null, 2), "application/json");
+  };
+
+  const exportMarkdown = () => {
+    const lines: string[] = [];
+    lines.push(`# BranchDebug Root-Cause Report`);
+    lines.push("");
+    lines.push(`**Generated:** ${new Date().toLocaleString()}`);
+    lines.push(`**Mode:** ${mode === "snippet" ? "Code snippet" : mode === "diff" ? "Git diff" : "Unknown"}`);
+    lines.push("");
+    lines.push(`## Verdict`);
+    lines.push("");
+    lines.push(result.summary || "_No summary available._");
+    lines.push("");
+    lines.push(`## IP Shield Sanitization`);
+    lines.push("");
+    lines.push(`- ${result.sanitizationStats.identifiersTokenized} identifiers tokenized`);
+    lines.push(`- ${result.sanitizationStats.commentsStripped} comment lines stripped`);
+    lines.push(`- ${result.sanitizationStats.secretsBlocked} secrets blocked`);
+    lines.push("");
+    lines.push(`## Ranked Suspects (${result.suspects.length})`);
+    lines.push("");
+    if (result.suspects.length === 0) {
+      lines.push("_No suspect changes identified._");
+    } else {
+      result.suspects.forEach((s, i) => {
+        lines.push(`### #${i + 1} · [${s.confidence.toUpperCase()}] ${s.changeSummary}`);
+        lines.push("");
+        lines.push(`- **File:** \`${s.filePath}\``);
+        lines.push(`- **Lines:** ${s.lineStart}${s.lineEnd !== s.lineStart ? `–${s.lineEnd}` : ""}`);
+        if (s.functionName) lines.push(`- **Function:** \`${s.functionName}()\``);
+        lines.push("");
+        lines.push(`**Mechanism:** ${s.mechanism}`);
+        lines.push("");
+        if (s.beforeSnippet || s.afterSnippet) {
+          lines.push("```diff");
+          if (s.beforeSnippet) s.beforeSnippet.split("\n").forEach((l) => lines.push(`- ${l}`));
+          if (s.afterSnippet) s.afterSnippet.split("\n").forEach((l) => lines.push(`+ ${l}`));
+          lines.push("```");
+          lines.push("");
+        }
+      });
+    }
+    download(`branchdebug-report-${stamp}.md`, lines.join("\n"), "text/markdown");
+  };
+
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        onClick={exportMarkdown}
+        className="h-7 px-2 rounded-md border border-border bg-background hover:border-primary/40 hover:text-primary text-muted-foreground text-[10px] font-mono uppercase tracking-widest flex items-center gap-1"
+        title="Export Markdown report"
+      >
+        <FileText className="h-3 w-3" /> .md
+      </button>
+      <button
+        onClick={exportJson}
+        className="h-7 px-2 rounded-md border border-border bg-background hover:border-primary/40 hover:text-primary text-muted-foreground text-[10px] font-mono uppercase tracking-widest flex items-center gap-1"
+        title="Export JSON report"
+      >
+        <FileJson className="h-3 w-3" /> .json
+      </button>
     </div>
   );
 }

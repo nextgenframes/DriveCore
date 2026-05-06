@@ -895,3 +895,91 @@ function StatCell({ label, value, highlight }: { label: string; value: number; h
     </div>
   );
 }
+
+function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "snippet" | "unknown" }) {
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+
+  const download = (filename: string, content: string, mime: string) => {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${filename}`);
+  };
+
+  const exportJson = () => {
+    const payload = {
+      generatedAt: new Date().toISOString(),
+      mode,
+      summary: result.summary,
+      suspects: result.suspects,
+      sanitizationStats: result.sanitizationStats,
+    };
+    download(`branchdebug-report-${stamp}.json`, JSON.stringify(payload, null, 2), "application/json");
+  };
+
+  const exportMarkdown = () => {
+    const lines: string[] = [];
+    lines.push(`# BranchDebug Root-Cause Report`);
+    lines.push("");
+    lines.push(`**Generated:** ${new Date().toLocaleString()}`);
+    lines.push(`**Mode:** ${mode === "snippet" ? "Code snippet" : mode === "diff" ? "Git diff" : "Unknown"}`);
+    lines.push("");
+    lines.push(`## Verdict`);
+    lines.push("");
+    lines.push(result.summary || "_No summary available._");
+    lines.push("");
+    lines.push(`## IP Shield Sanitization`);
+    lines.push("");
+    lines.push(`- ${result.sanitizationStats.identifiersTokenized} identifiers tokenized`);
+    lines.push(`- ${result.sanitizationStats.commentsStripped} comment lines stripped`);
+    lines.push(`- ${result.sanitizationStats.secretsBlocked} secrets blocked`);
+    lines.push("");
+    lines.push(`## Ranked Suspects (${result.suspects.length})`);
+    lines.push("");
+    if (result.suspects.length === 0) {
+      lines.push("_No suspect changes identified._");
+    } else {
+      result.suspects.forEach((s, i) => {
+        lines.push(`### #${i + 1} · [${s.confidence.toUpperCase()}] ${s.changeSummary}`);
+        lines.push("");
+        lines.push(`- **File:** \`${s.filePath}\``);
+        lines.push(`- **Lines:** ${s.lineStart}${s.lineEnd !== s.lineStart ? `–${s.lineEnd}` : ""}`);
+        if (s.functionName) lines.push(`- **Function:** \`${s.functionName}()\``);
+        lines.push("");
+        lines.push(`**Mechanism:** ${s.mechanism}`);
+        lines.push("");
+        if (s.beforeSnippet || s.afterSnippet) {
+          lines.push("```diff");
+          if (s.beforeSnippet) s.beforeSnippet.split("\n").forEach((l) => lines.push(`- ${l}`));
+          if (s.afterSnippet) s.afterSnippet.split("\n").forEach((l) => lines.push(`+ ${l}`));
+          lines.push("```");
+          lines.push("");
+        }
+      });
+    }
+    download(`branchdebug-report-${stamp}.md`, lines.join("\n"), "text/markdown");
+  };
+
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        onClick={exportMarkdown}
+        className="h-7 px-2 rounded-md border border-border bg-background hover:border-primary/40 hover:text-primary text-muted-foreground text-[10px] font-mono uppercase tracking-widest flex items-center gap-1"
+        title="Export Markdown report"
+      >
+        <FileText className="h-3 w-3" /> .md
+      </button>
+      <button
+        onClick={exportJson}
+        className="h-7 px-2 rounded-md border border-border bg-background hover:border-primary/40 hover:text-primary text-muted-foreground text-[10px] font-mono uppercase tracking-widest flex items-center gap-1"
+        title="Export JSON report"
+      >
+        <FileJson className="h-3 w-3" /> .json
+      </button>
+    </div>
+  );
+}

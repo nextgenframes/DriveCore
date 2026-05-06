@@ -285,13 +285,13 @@ index aaa..bbb 100644
                   style={isActive ? { borderColor: s.color + "80", background: s.color + "12" } : undefined}
                 >
                   <div
-                    className="h-7 w-7 rounded-full flex items-center justify-center text-[11px] font-bold font-mono shrink-0"
+                    className="h-7 w-7 rounded-full flex items-center justify-center shrink-0"
                     style={{
                       background: isActive ? s.color : isRevealed ? s.color + "30" : "hsl(var(--muted))",
                       color: isActive ? "#001a0d" : s.color,
                     }}
                   >
-                    {s.id}
+                    <s.Icon className="h-3.5 w-3.5" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium truncate">{s.label}</div>

@@ -644,9 +644,12 @@ function AnalyzerView({
         {result && (
           <>
             <div className="rounded-xl border border-border bg-surface/60 p-5 space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Verdict</div>
-                <AuditModalTrigger audit={result.audit} stats={result.sanitizationStats} />
+                <div className="flex items-center gap-2">
+                  <ExportButtons result={result} mode={detected} />
+                  <AuditModalTrigger audit={result.audit} stats={result.sanitizationStats} />
+                </div>
               </div>
               <p className="text-sm leading-relaxed">{result.summary}</p>
               <div className="flex flex-wrap gap-3 text-[10px] font-mono uppercase tracking-wider text-muted-foreground pt-2 border-t border-border">

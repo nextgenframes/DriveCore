@@ -532,12 +532,15 @@ const CONFIDENCE_STYLES = {
 
 function AnalyzerView({
   diff, setDiff, failure, setFailure, result, analyzing, onRun, onSample, editorBase, setEditorBase,
+  detected, language, setLanguage,
 }: {
   diff: string; setDiff: (v: string) => void;
   failure: string; setFailure: (v: string) => void;
   result: DebugResult | null; analyzing: boolean;
   onRun: () => void; onSample: () => void;
   editorBase: string; setEditorBase: (v: string) => void;
+  detected: "diff" | "snippet" | "unknown";
+  language: string; setLanguage: (v: string) => void;
 }) {
   return (
     <div className="flex-1 grid grid-cols-1 lg:grid-cols-[480px_1fr] min-h-0 overflow-hidden">

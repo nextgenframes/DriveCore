@@ -1202,18 +1202,31 @@ function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "
             </p>
 
             <div className="grid grid-cols-2 gap-2">
-              {textFields.map((f) => (
-                <label key={f.key} className={f.key === "baseUrl" ? "col-span-2 block" : "block"}>
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{f.label}</span>
-                  <input
-                    type="text"
-                    value={jira[f.key]}
-                    onChange={(e) => setJira({ ...jira, [f.key]: e.target.value })}
-                    placeholder={f.placeholder}
-                    className="mt-1 w-full h-8 px-2 rounded-md bg-[#080c10] border border-border text-xs font-mono text-foreground focus:border-[#2684ff] outline-none"
-                  />
-                </label>
-              ))}
+              {textFields.map((f) => {
+                const err = f.key === "baseUrl" ? jiraErrors.baseUrl : f.key === "issueType" ? jiraErrors.issueType : undefined;
+                const isLong = f.key === "baseUrl";
+                return (
+                  <label key={f.key} className={isLong ? "col-span-2 block" : "block"}>
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{f.label}</span>
+                    <input
+                      type="text"
+                      value={jira[f.key]}
+                      onChange={(e) => setJira({ ...jira, [f.key]: e.target.value })}
+                      placeholder={f.placeholder}
+                      aria-invalid={!!err}
+                      aria-describedby={err ? `jira-${f.key}-err` : undefined}
+                      className={`mt-1 w-full h-8 px-2 rounded-md bg-[#080c10] border text-xs font-mono text-foreground outline-none ${
+                        err ? "border-red-500/60 focus:border-red-500" : "border-border focus:border-[#2684ff]"
+                      }`}
+                    />
+                    {err && (
+                      <span id={`jira-${f.key}-err`} className="mt-1 block text-[10px] font-mono text-red-400">
+                        {err}
+                      </span>
+                    )}
+                  </label>
+                );
+              })}
             </div>
 
             <label className="block">

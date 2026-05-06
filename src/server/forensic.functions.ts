@@ -119,6 +119,7 @@ const ConnectSchema = z.object({
 });
 
 export const testVehicleConnection = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ConnectSchema.parse(d))
   .handler(async ({ data }) => {
     const results: Record<string, any> = {};
@@ -126,6 +127,7 @@ export const testVehicleConnection = createServerFn({ method: "POST" })
 
     if (data.manifestUrl) {
       try {
+        assertSafePublicUrl(data.manifestUrl);
         const url = `${data.manifestUrl.replace(/\/$/, "")}/vehicles/${encodeURIComponent(data.vehicleId)}/manifest`;
         const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
         results.manifestReachable = res.ok;
@@ -133,8 +135,11 @@ export const testVehicleConnection = createServerFn({ method: "POST" })
         if (res.ok) {
           const m = await res.json().catch(() => null);
           if (m && typeof m === "object") {
-            results.deployedCommit = (m as any).commit ?? null;
-            results.branch = (m as any).branch ?? null;
+            // Only reflect known typed fields back to caller
+            const commit = (m as any).commit;
+            const branch = (m as any).branch;
+            results.deployedCommit = typeof commit === "string" ? commit.slice(0, 80) : null;
+            results.branch = typeof branch === "string" ? branch.slice(0, 80) : null;
           }
         }
       } catch (e) {
@@ -174,6 +179,7 @@ const FetchSchema = z.object({
 });
 
 export const fetchVehicleCode = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => FetchSchema.parse(d))
   .handler(async ({ data }): Promise<FetchedCode> => {
     const warnings: string[] = [];
@@ -184,6 +190,7 @@ export const fetchVehicleCode = createServerFn({ method: "POST" })
     // Strategy 1: manifest endpoint
     if (!commit && data.manifestUrl) {
       try {
+        assertSafePublicUrl(data.manifestUrl);
         const url = `${data.manifestUrl.replace(/\/$/, "")}/vehicles/${encodeURIComponent(data.vehicleId)}/manifest`;
         const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
         if (r.ok) {
@@ -453,6 +460,7 @@ function deepRestore(value: any, rev: Map<string, string>): any {
 }
 
 export const runForensicStage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => StageInput.parse(d))
   .handler(async ({ data }): Promise<{ result: StageResult; sanitizationStats: { identifiersTokenized: number; commentsStripped: number; secretsBlocked: number } }> => {
     const apiKey = process.env.LOVABLE_API_KEY;

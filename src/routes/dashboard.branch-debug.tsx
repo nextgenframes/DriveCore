@@ -106,7 +106,7 @@ function BranchDebugPage() {
   const zone = ZONES[step.zone];
 
   // ─── Analyzer state ───
-  const [tab, setTab] = useState<"analyzer" | "howto">("analyzer");
+  const [tab, setTab] = useState<"analyzer" | "cli" | "howto">("analyzer");
   const [diff, setDiff] = useState("");
   const [failure, setFailure] = useState("");
   const [result, setResult] = useState<DebugResult | null>(null);

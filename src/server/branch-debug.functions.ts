@@ -242,89 +242,88 @@ For each hunk that plausibly caused the failure, return a suspect entry with:
 
 Rank by likelihood. Be conservative; if a hunk is unrelated, do not include it. Always call submit_root_cause_analysis.`;
 
+export async function analyzeDiff(diff: string, failureDescription: string): Promise<DebugResult> {
+  const apiKey = process.env.LOVABLE_API_KEY;
+  if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
+
+  const { sanitized, reverseMap, stats, audit } = sanitize(diff);
+  const hunks = parseDiff(diff);
+  if (hunks.length === 0) throw new Error("No hunks found in diff. Make sure the input is a unified git diff.");
+
+  const sanitizedHunks = parseDiff(sanitized);
+  const hunkList = sanitizedHunks.map((h, i) => {
+    const realLoc = hunks[i];
+    const range = realLoc ? `lines ${realLoc.newStart}-${realLoc.newEnd}` : `lines ?`;
+    const ctx = h.functionContext ? ` in ${h.functionContext}` : "";
+    const added = h.addedLines.slice(0, 8).map((l) => `+ ${l}`).join("\n");
+    const removed = h.removedLines.slice(0, 8).map((l) => `- ${l}`).join("\n");
+    return `[${i}] ${h.filePath} (${range})${ctx}\n${removed}\n${added}`;
+  }).join("\n\n");
+
+  const userContent = `FAILURE DESCRIPTION (sanitized):\n${sanitize(failureDescription).sanitized}\n\nHUNKS:\n${hunkList}\n\nFULL SANITIZED DIFF:\n${sanitized.slice(0, 40_000)}`;
+
+  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userContent },
+      ],
+      tools: [analysisTool],
+      tool_choice: { type: "function", function: { name: "submit_root_cause_analysis" } },
+    }),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text();
+    if (resp.status === 429) throw new Error("Rate limit reached. Try again shortly.");
+    if (resp.status === 402) throw new Error("AI credits exhausted. Add credits in Workspace > Usage.");
+    throw new Error(`AI gateway error ${resp.status}: ${text.slice(0, 300)}`);
+  }
+
+  const json = await resp.json();
+  const toolCall = json.choices?.[0]?.message?.tool_calls?.[0];
+  if (!toolCall?.function?.arguments) throw new Error("AI did not return structured analysis.");
+
+  const parsed = JSON.parse(toolCall.function.arguments) as {
+    summary: string;
+    suspects: { hunkIndex: number; functionToken: string; confidence: "high" | "medium" | "low"; mechanism: string; changeSummary: string }[];
+  };
+
+  const suspects: Suspect[] = parsed.suspects
+    .filter((s) => hunks[s.hunkIndex])
+    .map((s) => {
+      const h = hunks[s.hunkIndex];
+      return {
+        filePath: h.filePath,
+        functionName: s.functionToken ? restore(s.functionToken, reverseMap) : (h.functionContext ?? null),
+        lineStart: h.newStart,
+        lineEnd: h.newEnd,
+        confidence: s.confidence,
+        mechanism: restore(s.mechanism, reverseMap),
+        changeSummary: restore(s.changeSummary, reverseMap),
+        beforeSnippet: h.removedLines.slice(0, 6).join("\n") || null,
+        afterSnippet: h.addedLines.slice(0, 6).join("\n") || null,
+      };
+    })
+    .sort((a, b) => {
+      const order = { high: 0, medium: 1, low: 2 } as const;
+      return order[a.confidence] - order[b.confidence];
+    });
+
+  return {
+    summary: restore(parsed.summary, reverseMap),
+    suspects,
+    sanitizationStats: stats,
+    audit,
+  };
+}
+
 export const debugBranch = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => InputSchema.parse(d))
   .handler(async ({ data }): Promise<DebugResult> => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
-
-    // 1. Sanitize
-    const { sanitized, reverseMap, stats, audit } = sanitize(data.diff);
-
-    // 2. Parse hunks (from the ORIGINAL diff so file paths/line numbers are real)
-    const hunks = parseDiff(data.diff);
-    if (hunks.length === 0) throw new Error("No hunks found in diff. Make sure the input is a unified git diff.");
-
-    // 3. Build hunks summary for the AI (using sanitized line content)
-    const sanitizedHunks = parseDiff(sanitized);
-    const hunkList = sanitizedHunks.map((h, i) => {
-      const realLoc = hunks[i];
-      const range = realLoc ? `lines ${realLoc.newStart}-${realLoc.newEnd}` : `lines ?`;
-      const ctx = h.functionContext ? ` in ${h.functionContext}` : "";
-      const added = h.addedLines.slice(0, 8).map((l) => `+ ${l}`).join("\n");
-      const removed = h.removedLines.slice(0, 8).map((l) => `- ${l}`).join("\n");
-      return `[${i}] ${h.filePath} (${range})${ctx}\n${removed}\n${added}`;
-    }).join("\n\n");
-
-    const userContent = `FAILURE DESCRIPTION (sanitized):\n${sanitize(data.failureDescription).sanitized}\n\nHUNKS:\n${hunkList}\n\nFULL SANITIZED DIFF:\n${sanitized.slice(0, 40_000)}`;
-
-    // 4. Call Lovable AI
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userContent },
-        ],
-        tools: [analysisTool],
-        tool_choice: { type: "function", function: { name: "submit_root_cause_analysis" } },
-      }),
-    });
-
-    if (!resp.ok) {
-      const text = await resp.text();
-      if (resp.status === 429) throw new Error("Rate limit reached. Try again shortly.");
-      if (resp.status === 402) throw new Error("AI credits exhausted. Add credits in Workspace > Usage.");
-      throw new Error(`AI gateway error ${resp.status}: ${text.slice(0, 300)}`);
-    }
-
-    const json = await resp.json();
-    const toolCall = json.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall?.function?.arguments) throw new Error("AI did not return structured analysis.");
-
-    const parsed = JSON.parse(toolCall.function.arguments) as {
-      summary: string;
-      suspects: { hunkIndex: number; functionToken: string; confidence: "high" | "medium" | "low"; mechanism: string; changeSummary: string }[];
-    };
-
-    // 5. Restore real names + map back to real file/line locations
-    const suspects: Suspect[] = parsed.suspects
-      .filter((s) => hunks[s.hunkIndex])
-      .map((s) => {
-        const h = hunks[s.hunkIndex];
-        return {
-          filePath: h.filePath,
-          functionName: s.functionToken ? restore(s.functionToken, reverseMap) : (h.functionContext ?? null),
-          lineStart: h.newStart,
-          lineEnd: h.newEnd,
-          confidence: s.confidence,
-          mechanism: restore(s.mechanism, reverseMap),
-          changeSummary: restore(s.changeSummary, reverseMap),
-          beforeSnippet: h.removedLines.slice(0, 6).join("\n") || null,
-          afterSnippet: h.addedLines.slice(0, 6).join("\n") || null,
-        };
-      })
-      .sort((a, b) => {
-        const order = { high: 0, medium: 1, low: 2 } as const;
-        return order[a.confidence] - order[b.confidence];
-      });
-
-    return {
-      summary: restore(parsed.summary, reverseMap),
-      suspects,
-      sanitizationStats: stats,
-      audit,
-    };
+    return analyzeDiff(data.diff, data.failureDescription);
   });
+

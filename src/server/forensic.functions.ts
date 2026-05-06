@@ -81,7 +81,7 @@ const ConnectSchema = z.object({
 export const testVehicleConnection = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => ConnectSchema.parse(d))
   .handler(async ({ data }) => {
-    const results: Record<string, unknown> = {};
+    const results: Record<string, any> = {};
     const t0 = Date.now();
 
     if (data.manifestUrl) {

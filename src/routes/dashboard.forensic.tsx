@@ -48,7 +48,7 @@ function ForensicPage() {
   const [manualCommit, setManualCommit] = useState("");
   const [targetFiles, setTargetFiles] = useState("perception/tracker.py\nplanning/policy.py");
   const [testing, setTesting] = useState(false);
-  const [testResults, setTestResults] = useState<Record<string, unknown> | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, any> | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [fetched, setFetched] = useState<FetchedCode | null>(null);
 

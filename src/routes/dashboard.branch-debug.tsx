@@ -547,16 +547,45 @@ function AnalyzerView({
       {/* Input panel */}
       <div className="border-r border-border overflow-y-auto p-6 space-y-4 bg-surface/20">
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Unified git diff</label>
-            <button onClick={onSample} className="text-[10px] font-mono uppercase tracking-widest text-primary hover:underline">Load sample</button>
+          <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+            <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Git diff or code snippet</label>
+            <div className="flex items-center gap-2">
+              {detected !== "unknown" && (
+                <span className={cn(
+                  "text-[9px] font-mono uppercase tracking-widest px-2 py-0.5 rounded border",
+                  detected === "diff" ? "border-purple-400/40 bg-purple-400/10 text-purple-300" : "border-primary/40 bg-primary/10 text-primary"
+                )}>
+                  {detected === "diff" ? "⎇ git diff" : "{} snippet"}
+                </span>
+              )}
+              <button onClick={onSample} className="text-[10px] font-mono uppercase tracking-widest text-primary hover:underline">Load sample</button>
+            </div>
           </div>
           <Textarea
             value={diff}
             onChange={(e) => setDiff(e.target.value)}
-            placeholder="Paste output of `git diff main..feature/...`"
+            placeholder={"Paste a git diff (git diff main..feature/...) — OR — paste a raw code snippet and we'll analyze it directly."}
             className="font-mono text-xs h-64 resize-none bg-background"
           />
+          {detected === "snippet" && (
+            <div className="mt-2 flex items-center gap-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Language</label>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                className="text-[11px] font-mono px-2 py-1 rounded-md bg-background border border-border focus:border-primary outline-none"
+              >
+                {LANGUAGES.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+              </select>
+            </div>
+          )}
+          {detected !== "unknown" && (
+            <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
+              {detected === "diff"
+                ? "⎇ Diff mode — AI maps changed lines → failure → ranked suspects."
+                : "{} Snippet mode — AI analyzes this code directly for bugs matching your failure. No diff needed."}
+            </p>
+          )}
         </div>
         <div>
           <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2 block">Failure description</label>
@@ -578,7 +607,7 @@ function AnalyzerView({
           <p className="text-[10px] text-muted-foreground mt-1">Used to jump directly to suspect lines in your editor.</p>
         </div>
         <Button onClick={onRun} disabled={analyzing} className="w-full gap-2">
-          {analyzing ? <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing…</> : <><Sparkles className="h-4 w-4" /> Analyze branch</>}
+          {analyzing ? <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing…</> : <><Sparkles className="h-4 w-4" /> Analyze {detected === "snippet" ? "snippet" : detected === "diff" ? "diff" : "code"}</>}
         </Button>
         <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-3 flex gap-2 text-[11px] text-muted-foreground">
           <Shield className="h-3.5 w-3.5 text-yellow-500 shrink-0 mt-0.5" />

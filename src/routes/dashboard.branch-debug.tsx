@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
-import { GitBranch, Play, RotateCcw, Shield, ChevronLeft, ChevronRight, Check, Loader2, Sparkles, FileCode, ExternalLink, Copy, Eye, ArrowRight, Download, FileJson, FileText, Terminal, Edit3, Lock, Send, Brain, Unlock, Target, type LucideIcon } from "lucide-react";
+import { GitBranch, Play, RotateCcw, Shield, ChevronLeft, ChevronRight, Check, Loader2, Sparkles, FileCode, ExternalLink, Copy, Eye, ArrowRight, Download, FileJson, FileText, Terminal, Edit3, Lock, Send, Brain, Unlock, Target, Ticket, type LucideIcon } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { debugBranch, debugSnippet, type DebugResult, type Suspect } from "@/server/branch-debug.functions";
 import { Button } from "@/components/ui/button";
@@ -970,6 +970,65 @@ function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "
     download(`branchdebug-report-${stamp}.md`, lines.join("\n"), "text/markdown");
   };
 
+  const createJiraTicket = async () => {
+    const stored = typeof window !== "undefined" ? localStorage.getItem("branchdebug.jiraBaseUrl") : "";
+    let base = stored || "";
+    if (!base) {
+      const input = window.prompt("Enter your Jira base URL (e.g. https://acme.atlassian.net):", "https://your-domain.atlassian.net");
+      if (!input) return;
+      base = input.replace(/\/$/, "");
+      localStorage.setItem("branchdebug.jiraBaseUrl", base);
+    }
+
+    const top = result.suspects[0];
+    const summary = top
+      ? `BranchDebug: ${top.changeSummary} (${top.filePath})`
+      : `BranchDebug: ${(result.summary || "Root-cause report").slice(0, 80)}`;
+
+    const body: string[] = [];
+    body.push(`*Mode:* ${mode === "snippet" ? "Code snippet" : mode === "diff" ? "Git diff" : "Unknown"}`);
+    body.push(`*Generated:* ${new Date().toLocaleString()}`);
+    body.push("");
+    body.push(`h2. Verdict`);
+    body.push(result.summary || "_No summary available._");
+    body.push("");
+    body.push(`h2. IP Shield Sanitization Stats`);
+    body.push(`* ${result.sanitizationStats.identifiersTokenized} identifiers tokenized`);
+    body.push(`* ${result.sanitizationStats.commentsStripped} comment lines stripped`);
+    body.push(`* ${result.sanitizationStats.secretsBlocked} secrets blocked`);
+    body.push("");
+    body.push(`h2. Ranked Suspects (${result.suspects.length})`);
+    if (result.suspects.length === 0) {
+      body.push("_No suspect changes identified._");
+    } else {
+      result.suspects.forEach((s, i) => {
+        body.push(`h3. #${i + 1} [${s.confidence.toUpperCase()}] ${s.changeSummary}`);
+        body.push(`* *File:* {{${s.filePath}}}`);
+        body.push(`* *Lines:* ${s.lineStart}${s.lineEnd !== s.lineStart ? `-${s.lineEnd}` : ""}`);
+        if (s.functionName) body.push(`* *Function:* {{${s.functionName}()}}`);
+        body.push(`*Mechanism:* ${s.mechanism}`);
+        if (s.beforeSnippet || s.afterSnippet) {
+          body.push(`{code}`);
+          if (s.beforeSnippet) s.beforeSnippet.split("\n").forEach((l) => body.push(`- ${l}`));
+          if (s.afterSnippet) s.afterSnippet.split("\n").forEach((l) => body.push(`+ ${l}`));
+          body.push(`{code}`);
+        }
+        body.push("");
+      });
+    }
+
+    const description = body.join("\n");
+    try {
+      await navigator.clipboard.writeText(description);
+      toast.success("Ticket description copied — paste into Jira");
+    } catch {
+      toast.message("Could not copy automatically — paste manually in Jira");
+    }
+
+    const url = `${base}/secure/CreateIssue!default.jspa?summary=${encodeURIComponent(summary)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <div className="flex items-center gap-1">
       <button
@@ -985,6 +1044,13 @@ function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "
         title="Export JSON report"
       >
         <FileJson className="h-3 w-3" /> .json
+      </button>
+      <button
+        onClick={createJiraTicket}
+        className="h-7 px-2 rounded-md border border-[#2684ff]/40 bg-[#2684ff]/10 hover:bg-[#2684ff]/20 hover:border-[#2684ff] text-[#2684ff] text-[10px] font-mono uppercase tracking-widest flex items-center gap-1"
+        title="Create Jira ticket with sanitization stats and ranked suspects"
+      >
+        <Ticket className="h-3 w-3" /> Jira
       </button>
     </div>
   );

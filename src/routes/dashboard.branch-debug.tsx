@@ -178,7 +178,7 @@ index aaa..bbb 100644
             className={cn("px-3 py-1.5 rounded-md text-xs font-mono uppercase tracking-widest transition-colors",
               tab === "cli" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
           >
-            <FileCode className="h-3 w-3 inline mr-1.5" /> VS Code CLI
+            <FileCode className="h-3 w-3 inline mr-1.5" /> VS Code
           </button>
           <button
             onClick={() => setTab("howto")}

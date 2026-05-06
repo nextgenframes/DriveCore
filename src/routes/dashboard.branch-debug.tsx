@@ -554,3 +554,156 @@ function SuspectCard({ suspect, editorBase, rank }: { suspect: Suspect; editorBa
   );
 }
 
+
+function AuditModalTrigger({ audit, stats }: { audit: DebugResult["audit"]; stats: DebugResult["sanitizationStats"] }) {
+  const [tab, setTab] = useState<"tokens" | "comments" | "secrets" | "diff">("tokens");
+  const sampleOriginalLines = audit.sample.original.split("\n");
+  const sampleSanitizedLines = audit.sample.sanitized.split("\n");
+  const maxLines = Math.max(sampleOriginalLines.length, sampleSanitizedLines.length);
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-mono uppercase tracking-widest border border-yellow-500/40 bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20 transition-colors">
+          <Eye className="h-3 w-3" /> View audit
+        </button>
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-0 gap-0">
+        <DialogHeader className="px-6 pt-5 pb-3 border-b border-border">
+          <DialogTitle className="flex items-center gap-2">
+            <Shield className="h-4 w-4 text-yellow-500" /> IP Shield Audit
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            Everything that was sanitized before the diff reached the AI. Real names and secrets never left your server.
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Stats strip */}
+        <div className="grid grid-cols-3 border-b border-border">
+          <StatCell label="Identifiers tokenized" value={stats.identifiersTokenized} />
+          <StatCell label="Comment lines stripped" value={stats.commentsStripped} />
+          <StatCell label="Secrets blocked" value={stats.secretsBlocked} highlight={stats.secretsBlocked > 0} />
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 px-6 pt-3 border-b border-border">
+          {([
+            ["tokens", `Token map (${audit.tokenMap.length})`],
+            ["comments", `Comments (${audit.redactedComments.length})`],
+            ["secrets", `Secrets (${audit.secretMatches.length})`],
+            ["diff", "Before / After"],
+          ] as const).map(([k, label]) => (
+            <button
+              key={k}
+              onClick={() => setTab(k)}
+              className={cn(
+                "px-3 py-2 text-[11px] font-mono uppercase tracking-wider border-b-2 transition-colors",
+                tab === k ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="p-6">
+            {tab === "tokens" && (
+              audit.tokenMap.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No identifiers were tokenized.</p>
+              ) : (
+                <div className="rounded-lg border border-border overflow-hidden">
+                  <div className="grid grid-cols-[1fr_auto_2fr_auto] gap-3 px-4 py-2 bg-surface text-[10px] font-mono uppercase tracking-widest text-muted-foreground border-b border-border">
+                    <span>Token sent to AI</span><span></span><span>Real identifier (local only)</span><span>Uses</span>
+                  </div>
+                  {audit.tokenMap.map((e) => (
+                    <div key={e.token} className="grid grid-cols-[1fr_auto_2fr_auto] gap-3 px-4 py-2 text-xs font-mono items-center border-b border-border last:border-b-0 hover:bg-surface/50">
+                      <code className="text-primary">{e.token}</code>
+                      <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                      <code className="text-foreground truncate">{e.real}</code>
+                      <span className="text-muted-foreground tabular-nums">{e.occurrences}×</span>
+                    </div>
+                  ))}
+                </div>
+              )
+            )}
+
+            {tab === "comments" && (
+              audit.redactedComments.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No comments were stripped.</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {audit.redactedComments.map((c, i) => (
+                    <li key={i} className="rounded-md border border-border bg-surface/40 px-3 py-2 text-xs font-mono text-muted-foreground">
+                      <span className="text-yellow-500">×</span> {c}
+                    </li>
+                  ))}
+                </ul>
+              )
+            )}
+
+            {tab === "secrets" && (
+              audit.secretMatches.length === 0 ? (
+                <div className="rounded-lg border border-severity-low/30 bg-severity-low/5 p-4 text-sm flex items-center gap-2 text-severity-low">
+                  <Check className="h-4 w-4" /> No secret patterns detected in the diff.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-[11px] text-muted-foreground mb-2">Only the pattern type and length are recorded. The original values were destroyed before reaching this view.</p>
+                  {audit.secretMatches.map((s, i) => (
+                    <div key={i} className="rounded-md border border-severity-critical/30 bg-severity-critical/5 px-3 py-2 flex items-center justify-between text-xs font-mono">
+                      <span className="text-severity-critical font-semibold">{s.pattern}</span>
+                      <span className="text-muted-foreground">{s.replaced}</span>
+                    </div>
+                  ))}
+                </div>
+              )
+            )}
+
+            {tab === "diff" && (
+              <div className="space-y-2">
+                <p className="text-[11px] text-muted-foreground">Side-by-side preview (first {maxLines} lines). Left = local, right = exactly what the AI saw.</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-lg border border-border bg-surface/40 overflow-hidden">
+                    <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest bg-surface border-b border-border">Local (real)</div>
+                    <pre className="text-[11px] font-mono p-3 leading-relaxed whitespace-pre overflow-x-auto">
+                      {sampleOriginalLines.map((l, i) => (
+                        <div key={i} className="flex">
+                          <span className="text-muted-foreground/40 w-8 shrink-0 select-none">{i + 1}</span>
+                          <span>{l || " "}</span>
+                        </div>
+                      ))}
+                    </pre>
+                  </div>
+                  <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 overflow-hidden">
+                    <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest bg-yellow-500/10 border-b border-yellow-500/30 text-yellow-500">Sent to AI (sanitized)</div>
+                    <pre className="text-[11px] font-mono p-3 leading-relaxed whitespace-pre overflow-x-auto">
+                      {sampleSanitizedLines.map((l, i) => (
+                        <div key={i} className="flex">
+                          <span className="text-muted-foreground/40 w-8 shrink-0 select-none">{i + 1}</span>
+                          <span dangerouslySetInnerHTML={{
+                            __html: (l || " ").replace(/(fn_\d{4})/g, '<span class="text-primary">$1</span>')
+                              .replace(/(\[SECRET_REDACTED\])/g, '<span class="text-severity-critical font-bold">$1</span>')
+                          }} />
+                        </div>
+                      ))}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function StatCell({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
+  return (
+    <div className="px-6 py-3 border-r border-border last:border-r-0">
+      <div className={cn("text-2xl font-bold tabular-nums", highlight ? "text-severity-critical" : "text-foreground")}>{value}</div>
+      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{label}</div>
+    </div>
+  );
+}

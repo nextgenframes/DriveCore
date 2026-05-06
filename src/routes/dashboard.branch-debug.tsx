@@ -386,6 +386,80 @@ index aaa..bbb 100644
 
 function AnalyzerStyles() { return null; }
 
+function CliView() {
+  const endpoint = typeof window !== "undefined" ? `${window.location.origin}/api/public/branch-debug` : "/api/public/branch-debug";
+  const install = `curl -fsSL ${endpoint.replace("/api/public/branch-debug", "/cli/eventdash-debug.mjs")} -o eventdash-debug.mjs`;
+  const run = `node ./eventdash-debug.mjs "Checkout 500s on Amex cards after deploy"`;
+  const runCursor = `node ./eventdash-debug.mjs --editor cursor "..."`;
+  const runBase = `node ./eventdash-debug.mjs --base origin/main "..."`;
+
+  const Block = ({ cmd }: { cmd: string }) => (
+    <div className="group relative rounded-lg border border-border bg-[#0a0e15] p-4 font-mono text-xs text-foreground">
+      <pre className="whitespace-pre-wrap break-all">{cmd}</pre>
+      <button
+        onClick={() => { navigator.clipboard.writeText(cmd); toast.success("Copied"); }}
+        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded bg-surface border border-border hover:border-primary/50"
+      >
+        <Copy className="h-3 w-3" />
+      </button>
+    </div>
+  );
+
+  return (
+    <div className="flex-1 overflow-y-auto p-8">
+      <div className="max-w-3xl mx-auto space-y-6">
+        <div>
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <FileCode className="h-5 w-5 text-primary" /> Run Branch Debug from VS Code
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            One command in your VS Code terminal collects your current branch's diff, sends it through the IP Shield, and prints clickable jump links to the exact lines.
+          </p>
+        </div>
+
+        <section className="space-y-2">
+          <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground">1 — Download the helper (once)</h3>
+          <Block cmd={install} />
+        </section>
+
+        <section className="space-y-2">
+          <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground">2 — Describe the failure & run</h3>
+          <Block cmd={run} />
+          <p className="text-xs text-muted-foreground">
+            Auto-detects your repo root + branch. Diffs against <code className="text-primary">origin/main</code> by default.
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground">3 — Click suspects → opens in your editor</h3>
+          <div className="rounded-lg border border-border bg-surface/30 p-4 font-mono text-xs space-y-1.5">
+            <div className="text-muted-foreground">Summary</div>
+            <div className="pl-2 text-foreground">Threshold change excludes valid 15-digit Amex card numbers.</div>
+            <div className="mt-3 text-severity-critical font-bold">[1] HIGH  payments/AmexValidator.py:42-47  <span className="text-muted-foreground font-normal">(validate_card)</span></div>
+            <div className="pl-4 text-foreground">Threshold change 15→16</div>
+            <div className="pl-4 text-muted-foreground">Excludes valid 15-digit Amex card_numbers</div>
+            <div className="pl-4 text-blue-400 underline">vscode://file/{`{repoRoot}`}/payments/AmexValidator.py:42 <span className="text-muted-foreground no-underline">← ⌘-click to open</span></div>
+          </div>
+        </section>
+
+        <section className="space-y-2">
+          <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Options</h3>
+          <Block cmd={runCursor} />
+          <Block cmd={runBase} />
+        </section>
+
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 text-xs text-muted-foreground flex gap-3">
+          <Shield className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+          <div>
+            Your diff passes through the same IP Shield as the web Analyzer — identifiers tokenized, comments stripped, secrets blocked — before any AI sees it. Real file paths and line numbers are restored locally.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 const CONFIDENCE_STYLES = {
   high: { bg: "bg-severity-critical/10", border: "border-severity-critical/40", text: "text-severity-critical", dot: "bg-severity-critical" },
   medium: { bg: "bg-severity-high/10", border: "border-severity-high/40", text: "text-severity-high", dot: "bg-severity-high" },

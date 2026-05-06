@@ -178,7 +178,7 @@ index aaa..bbb 100644
             className={cn("px-3 py-1.5 rounded-md text-xs font-mono uppercase tracking-widest transition-colors",
               tab === "cli" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
           >
-            <FileCode className="h-3 w-3 inline mr-1.5" /> VS Code CLI
+            <FileCode className="h-3 w-3 inline mr-1.5" /> VS Code
           </button>
           <button
             onClick={() => setTab("howto")}
@@ -405,53 +405,92 @@ function CliView() {
     </div>
   );
 
+  const downloadExtension = () => {
+    fetch("/branchdebug-vscode-extension.zip")
+      .then((res) => { if (!res.ok) throw new Error(`Download failed: ${res.status}`); return res.blob(); })
+      .then((blob) => {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "branchdebug-vscode-extension.zip";
+        a.click();
+        URL.revokeObjectURL(a.href);
+        toast.success("Extension downloaded");
+      })
+      .catch((err) => toast.error(err.message));
+  };
+
   return (
     <div className="flex-1 overflow-y-auto p-8">
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="max-w-3xl mx-auto space-y-8">
         <div>
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <FileCode className="h-5 w-5 text-primary" /> Run Branch Debug from VS Code
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            One command in your VS Code terminal collects your current branch's diff, sends it through the IP Shield, and prints clickable jump links to the exact lines.
+            Two ways to connect your editor: install the official VS Code extension, or use the lightweight terminal helper.
           </p>
         </div>
 
-        <section className="space-y-2">
-          <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground">1 — Download the helper (once)</h3>
-          <Block cmd={install} />
-        </section>
+        {/* Option A: Extension */}
+        <section className="rounded-xl border border-primary/40 bg-primary/5 p-6 space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-primary font-mono">Recommended</div>
+              <h3 className="text-lg font-semibold mt-0.5">BranchDebug VS Code Extension</h3>
+              <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+                Sidebar panel, inline highlights, and one-click navigation to every suspect line. Works with VS Code, Cursor, and other Code-based editors.
+              </p>
+            </div>
+            <Button onClick={downloadExtension} className="shrink-0">
+              <ExternalLink className="h-4 w-4 mr-2" /> Download .zip
+            </Button>
+          </div>
 
-        <section className="space-y-2">
-          <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground">2 — Describe the failure & run</h3>
-          <Block cmd={run} />
-          <p className="text-xs text-muted-foreground">
-            Auto-detects your repo root + branch. Diffs against <code className="text-primary">origin/main</code> by default.
-          </p>
-        </section>
+          <div className="rounded-lg bg-[#0a0e15] border border-border p-4 text-xs text-foreground space-y-2">
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-mono">Install (unpacked)</div>
+            <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+              <li>Unzip the downloaded file.</li>
+              <li>In VS Code / Cursor, open the unzipped folder and run <code className="text-primary">npm install &amp;&amp; npm run compile</code>.</li>
+              <li>Press <code className="text-primary">F5</code> to launch an Extension Development Host, or run <code className="text-primary">vsce package</code> and install the resulting <code className="text-primary">.vsix</code>.</li>
+              <li>Open the BranchDebug sidebar → set <code className="text-primary">serverUrl</code> to <code className="text-primary">{endpoint.replace("/api/public/branch-debug", "")}</code>.</li>
+            </ol>
+          </div>
 
-        <section className="space-y-2">
-          <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground">3 — Click suspects → opens in your editor</h3>
-          <div className="rounded-lg border border-border bg-surface/30 p-4 font-mono text-xs space-y-1.5">
-            <div className="text-muted-foreground">Summary</div>
-            <div className="pl-2 text-foreground">Threshold change excludes valid 15-digit Amex card numbers.</div>
-            <div className="mt-3 text-severity-critical font-bold">[1] HIGH  payments/AmexValidator.py:42-47  <span className="text-muted-foreground font-normal">(validate_card)</span></div>
-            <div className="pl-4 text-foreground">Threshold change 15→16</div>
-            <div className="pl-4 text-muted-foreground">Excludes valid 15-digit Amex card_numbers</div>
-            <div className="pl-4 text-blue-400 underline">vscode://file/{`{repoRoot}`}/payments/AmexValidator.py:42 <span className="text-muted-foreground no-underline">← ⌘-click to open</span></div>
+          <div className="grid sm:grid-cols-3 gap-2 text-[11px]">
+            <div className="rounded-md bg-surface/50 border border-border p-2">
+              <div className="font-mono text-primary">branchdebug.analyzeCurrentBranch</div>
+              <div className="text-muted-foreground mt-0.5">Run analysis on your current branch.</div>
+            </div>
+            <div className="rounded-md bg-surface/50 border border-border p-2">
+              <div className="font-mono text-primary">URI handler</div>
+              <div className="text-muted-foreground mt-0.5">Opens <code>branchdebug://</code> deep links.</div>
+            </div>
+            <div className="rounded-md bg-surface/50 border border-border p-2">
+              <div className="font-mono text-primary">Inline highlights</div>
+              <div className="text-muted-foreground mt-0.5">Suspect lines decorated in the editor.</div>
+            </div>
           </div>
         </section>
 
-        <section className="space-y-2">
-          <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Options</h3>
-          <Block cmd={runCursor} />
-          <Block cmd={runBase} />
+        {/* Option B: CLI */}
+        <section className="space-y-3">
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-mono">Alternative</div>
+            <h3 className="text-base font-semibold mt-0.5">Terminal helper (no install)</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">For CI, headless servers, or when you don't want an extension.</p>
+          </div>
+          <Block cmd={install} />
+          <Block cmd={run} />
+          <div className="grid sm:grid-cols-2 gap-2">
+            <Block cmd={runCursor} />
+            <Block cmd={runBase} />
+          </div>
         </section>
 
         <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 text-xs text-muted-foreground flex gap-3">
           <Shield className="h-4 w-4 text-primary shrink-0 mt-0.5" />
           <div>
-            Your diff passes through the same IP Shield as the web Analyzer — identifiers tokenized, comments stripped, secrets blocked — before any AI sees it. Real file paths and line numbers are restored locally.
+            Both paths send your diff through the same IP Shield — identifiers tokenized, comments stripped, secrets blocked — before any AI sees it. Real file paths and line numbers are restored locally.
           </div>
         </div>
       </div>

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { UploadDialog } from "@/components/upload-dialog";
+import { AgentPipeline } from "@/components/agent-pipeline";
 import { SeverityBadge } from "@/components/severity-badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -162,15 +163,7 @@ function IncidentDetail({ incident, onRerun, onDelete }: { incident: Incident; o
         </div>
       </div>
 
-      {incident.status === "analyzing" && (
-        <div className="rounded-xl border border-primary/30 bg-primary/5 p-6 flex items-center gap-3">
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <div>
-            <p className="font-medium text-sm">Multi-agent analysis in progress…</p>
-            <p className="text-xs text-muted-foreground">Event → Safety → Risk → Documentation</p>
-          </div>
-        </div>
-      )}
+      {incident.status === "analyzing" && <AgentPipeline />}
 
       {incident.status === "failed" && (
         <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-6">

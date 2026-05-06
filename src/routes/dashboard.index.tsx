@@ -162,15 +162,7 @@ function IncidentDetail({ incident, onRerun, onDelete }: { incident: Incident; o
         </div>
       </div>
 
-      {incident.status === "analyzing" && (
-        <div className="rounded-xl border border-primary/30 bg-primary/5 p-6 flex items-center gap-3">
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <div>
-            <p className="font-medium text-sm">Multi-agent analysis in progress…</p>
-            <p className="text-xs text-muted-foreground">Event → Safety → Risk → Documentation</p>
-          </div>
-        </div>
-      )}
+      {incident.status === "analyzing" && <AgentPipeline />}
 
       {incident.status === "failed" && (
         <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-6">

@@ -246,7 +246,7 @@ export const debugBranch = createServerFn({ method: "POST" })
     if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
 
     // 1. Sanitize
-    const { sanitized, reverseMap, stats } = sanitize(data.diff);
+    const { sanitized, reverseMap, stats, audit } = sanitize(data.diff);
 
     // 2. Parse hunks (from the ORIGINAL diff so file paths/line numbers are real)
     const hunks = parseDiff(data.diff);

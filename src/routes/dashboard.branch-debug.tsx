@@ -174,6 +174,13 @@ index aaa..bbb 100644
             <Sparkles className="h-3 w-3 inline mr-1.5" /> Analyzer
           </button>
           <button
+            onClick={() => setTab("cli")}
+            className={cn("px-3 py-1.5 rounded-md text-xs font-mono uppercase tracking-widest transition-colors",
+              tab === "cli" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
+          >
+            <FileCode className="h-3 w-3 inline mr-1.5" /> VS Code CLI
+          </button>
+          <button
             onClick={() => setTab("howto")}
             className={cn("px-3 py-1.5 rounded-md text-xs font-mono uppercase tracking-widest transition-colors",
               tab === "howto" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
@@ -192,6 +199,8 @@ index aaa..bbb 100644
           editorBase={editorBase} setEditorBase={(v) => { setEditorBase(v); localStorage.setItem("branchdebug.editorBase", v); }}
         />
       )}
+
+      {tab === "cli" && <CliView />}
 
       {tab === "howto" && (
       <>

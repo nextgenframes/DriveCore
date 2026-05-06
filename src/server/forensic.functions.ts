@@ -1,6 +1,46 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { sanitize, restore } from "./branch-debug.functions";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+
+// ───────────────────────── SSRF Guard ─────────────────────────
+// Reject loopback, private (RFC1918), link-local, and cloud metadata addresses
+// before any server-side fetch of a user-supplied URL.
+function assertSafePublicUrl(raw: string): URL {
+  let u: URL;
+  try { u = new URL(raw); } catch { throw new Response("Invalid URL", { status: 400 }); }
+  if (u.protocol !== "https:" && u.protocol !== "http:") {
+    throw new Response("Only http(s) URLs are allowed", { status: 400 });
+  }
+  const host = u.hostname.toLowerCase();
+  // Block obvious literals
+  const blockedHosts = new Set([
+    "localhost", "127.0.0.1", "0.0.0.0", "::1",
+    "169.254.169.254", "metadata.google.internal", "metadata.goog",
+  ]);
+  if (blockedHosts.has(host)) throw new Response("Host not allowed", { status: 400 });
+  // Block IPv4 private/reserved ranges
+  const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4) {
+    const [a, b] = ipv4.slice(1).map(Number);
+    if (
+      a === 10 ||
+      a === 127 ||
+      a === 0 ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 169 && b === 254) ||
+      a >= 224 // multicast/reserved
+    ) throw new Response("Private/reserved IP not allowed", { status: 400 });
+  }
+  // Block IPv6 loopback / link-local / unique-local
+  if (host.includes(":")) {
+    if (host === "::1" || host.startsWith("fe80:") || host.startsWith("fc") || host.startsWith("fd")) {
+      throw new Response("Private IPv6 not allowed", { status: 400 });
+    }
+  }
+  return u;
+}
 
 // ───────────────────────── Types ─────────────────────────
 

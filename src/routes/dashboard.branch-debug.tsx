@@ -458,7 +458,7 @@ function CliView() {
 
           <div className="grid sm:grid-cols-3 gap-2 text-[11px]">
             <div className="rounded-md bg-surface/50 border border-border p-2">
-              <div className="font-mono text-primary">branchdebug.analyzeCurrentBranch</div>
+              <div className="font-mono text-primary">Analyze Current Branch</div>
               <div className="text-muted-foreground mt-0.5">Run analysis on your current branch.</div>
             </div>
             <div className="rounded-md bg-surface/50 border border-border p-2">

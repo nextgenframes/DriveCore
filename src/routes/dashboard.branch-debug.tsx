@@ -364,6 +364,14 @@ index aaa..bbb 100644
           </div>
         </div>
       </div>
+      </>
+      )}
+
+      {/* Analyzer view component */}
+      <AnalyzerStyles />
     </>
   );
 }
+
+function AnalyzerStyles() { return null; }
+

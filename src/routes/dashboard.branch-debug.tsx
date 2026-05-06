@@ -1120,9 +1120,11 @@ function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "
   };
 
   const createJiraTicket = async () => {
-    if (!jira.baseUrl) { toast.error("Jira base URL is required"); return; }
+    if (hasJiraErrors) {
+      toast.error(jiraErrors.baseUrl || jiraErrors.issueType || "Fix the highlighted fields");
+      return;
+    }
     persistJira();
-    // Also download the report files so the user can attach them after Jira opens
     exportMarkdown();
     exportJson();
     try {
@@ -1136,7 +1138,10 @@ function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "
   };
 
   const copyJiraLink = async () => {
-    if (!jira.baseUrl) { toast.error("Jira base URL is required"); return; }
+    if (hasJiraErrors) {
+      toast.error(jiraErrors.baseUrl || jiraErrors.issueType || "Fix the highlighted fields");
+      return;
+    }
     persistJira();
     try {
       await navigator.clipboard.writeText(buildJiraUrl());

@@ -993,21 +993,7 @@ function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "
     download(`branchdebug-report-${stamp}.md`, lines.join("\n"), "text/markdown");
   };
 
-  const createJiraTicket = async () => {
-    const stored = typeof window !== "undefined" ? localStorage.getItem("branchdebug.jiraBaseUrl") : "";
-    let base = stored || "";
-    if (!base) {
-      const input = window.prompt("Enter your Jira base URL (e.g. https://acme.atlassian.net):", "https://your-domain.atlassian.net");
-      if (!input) return;
-      base = input.replace(/\/$/, "");
-      localStorage.setItem("branchdebug.jiraBaseUrl", base);
-    }
-
-    const top = result.suspects[0];
-    const summary = top
-      ? `BranchDebug: ${top.changeSummary} (${top.filePath})`
-      : `BranchDebug: ${(result.summary || "Root-cause report").slice(0, 80)}`;
-
+  const buildJiraDescription = () => {
     const body: string[] = [];
     body.push(`*Mode:* ${mode === "snippet" ? "Code snippet" : mode === "diff" ? "Git diff" : "Unknown"}`);
     body.push(`*Generated:* ${new Date().toLocaleString()}`);
@@ -1039,8 +1025,23 @@ function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "
         body.push("");
       });
     }
+    return body.join("\n");
+  };
 
-    const description = body.join("\n");
+  const createJiraTicket = async () => {
+    if (!jira.baseUrl) {
+      toast.error("Jira base URL is required");
+      return;
+    }
+    const base = jira.baseUrl.replace(/\/$/, "");
+    localStorage.setItem(JIRA_CONFIG_KEY, JSON.stringify({ ...jira, baseUrl: base }));
+
+    const top = result.suspects[0];
+    const summary = top
+      ? `BranchDebug: ${top.changeSummary} (${top.filePath})`
+      : `BranchDebug: ${(result.summary || "Root-cause report").slice(0, 80)}`;
+
+    const description = buildJiraDescription();
     try {
       await navigator.clipboard.writeText(description);
       toast.success("Ticket description copied — paste into Jira");
@@ -1048,8 +1049,15 @@ function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "
       toast.message("Could not copy automatically — paste manually in Jira");
     }
 
-    const url = `${base}/secure/CreateIssue!default.jspa?summary=${encodeURIComponent(summary)}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+    const params = new URLSearchParams();
+    params.set("summary", summary);
+    if (jira.projectKey.trim()) params.set("pid", jira.projectKey.trim());
+    if (jira.assignee.trim()) params.set("assignee", jira.assignee.trim());
+    jira.labels.split(",").map((l) => l.trim()).filter(Boolean).forEach((l) => params.append("labels", l));
+    jira.components.split(",").map((c) => c.trim()).filter(Boolean).forEach((c) => params.append("components", c));
+
+    window.open(`${base}/secure/CreateIssue!default.jspa?${params.toString()}`, "_blank", "noopener,noreferrer");
+    setJiraOpen(false);
   };
 
   return (
@@ -1069,12 +1077,66 @@ function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "
         <FileJson className="h-3 w-3" /> .json
       </button>
       <button
-        onClick={createJiraTicket}
+        onClick={() => setJiraOpen(true)}
         className="h-7 px-2 rounded-md border border-[#2684ff]/40 bg-[#2684ff]/10 hover:bg-[#2684ff]/20 hover:border-[#2684ff] text-[#2684ff] text-[10px] font-mono uppercase tracking-widest flex items-center gap-1"
         title="Create Jira ticket with sanitization stats and ranked suspects"
       >
         <Ticket className="h-3 w-3" /> Jira
       </button>
+
+      {jiraOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          onClick={() => setJiraOpen(false)}
+        >
+          <div
+            className="w-full max-w-md bg-[#0d1520] border border-border rounded-lg p-5 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 text-[#2684ff]">
+              <Ticket className="h-4 w-4" />
+              <h3 className="text-sm font-mono uppercase tracking-widest">Create Jira ticket</h3>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Optional fields are pre-applied to the new issue. Saved locally for next time.
+            </p>
+
+            {([
+              { key: "baseUrl", label: "Base URL *", placeholder: "https://acme.atlassian.net" },
+              { key: "projectKey", label: "Project key / ID", placeholder: "ENG or 10001" },
+              { key: "assignee", label: "Assignee (username / accountId)", placeholder: "jdoe" },
+              { key: "labels", label: "Labels (comma-separated)", placeholder: "bug, regression, branch-debug" },
+              { key: "components", label: "Components (comma-separated)", placeholder: "API, Auth" },
+            ] as const).map((f) => (
+              <label key={f.key} className="block">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{f.label}</span>
+                <input
+                  type="text"
+                  value={jira[f.key]}
+                  onChange={(e) => setJira({ ...jira, [f.key]: e.target.value })}
+                  placeholder={f.placeholder}
+                  className="mt-1 w-full h-8 px-2 rounded-md bg-[#080c10] border border-border text-xs font-mono text-foreground focus:border-[#2684ff] outline-none"
+                />
+              </label>
+            ))}
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                onClick={() => setJiraOpen(false)}
+                className="h-8 px-3 rounded-md border border-border text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={createJiraTicket}
+                className="h-8 px-3 rounded-md bg-[#2684ff] hover:bg-[#2684ff]/90 text-white text-[10px] font-mono uppercase tracking-widest flex items-center gap-1"
+              >
+                <ExternalLink className="h-3 w-3" /> Open in Jira
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -16,6 +16,25 @@ export const Route = createFileRoute("/dashboard/branch-debug")({
 
 type Zone = "user" | "server" | "ai";
 
+const LANGUAGES = [
+  { id: "auto", label: "Auto-detect language" },
+  { id: "python", label: "Python" },
+  { id: "cpp", label: "C / C++" },
+  { id: "typescript", label: "TypeScript / JS" },
+  { id: "rust", label: "Rust" },
+  { id: "go", label: "Go" },
+  { id: "java", label: "Java" },
+];
+
+function detectInputType(text: string): "diff" | "snippet" | "unknown" {
+  if (!text || text.trim().length < 10) return "unknown";
+  const lines = text.trim().split("\n");
+  const diffHeaders = lines.filter((l) => /^(diff --git|---\s|\+\+\+\s|@@\s|index [a-f0-9])/.test(l)).length;
+  const diffLines = lines.filter((l) => /^[+\-](?![+\-])/.test(l)).length;
+  if (diffHeaders >= 1 || (diffLines / lines.length > 0.3 && diffLines >= 3)) return "diff";
+  return "snippet";
+}
+
 const STEPS: {
   id: number; label: string; sublabel: string; color: string; icon: string;
   zone: Zone; code: string; detail: string; codeLabel: string;

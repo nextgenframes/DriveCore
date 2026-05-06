@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { Radar, AlertTriangle, FileBarChart, GraduationCap, Scale, LogOut, User as UserIcon, GitBranch } from "lucide-react";
+import { Radar, AlertTriangle, FileBarChart, GraduationCap, Scale, LogOut, User as UserIcon, GitBranch, Car } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import type { User } from "@supabase/supabase-js";
@@ -7,6 +7,7 @@ import type { User } from "@supabase/supabase-js";
 const nav = [
   { to: "/dashboard", label: "Incidents", icon: AlertTriangle },
   { to: "/dashboard/branch-debug", label: "Branch Debug", icon: GitBranch },
+  { to: "/dashboard/forensic", label: "Forensic", icon: Car },
   { to: "/dashboard/reports", label: "Reports", icon: FileBarChart },
   { to: "/dashboard/coaching", label: "Coaching", icon: GraduationCap },
   { to: "/dashboard/compliance", label: "Compliance", icon: Scale },

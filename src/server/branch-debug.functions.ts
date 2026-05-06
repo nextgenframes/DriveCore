@@ -50,7 +50,7 @@ const RESERVED = new Set([
   "diff","git","index","main","feature","a","b","fix","add","remove","update",
 ]);
 
-function sanitize(diff: string) {
+export function sanitize(diff: string) {
   const tokenMap = new Map<string, string>();      // real -> token
   const reverseMap = new Map<string, string>();    // token -> real
   const occurrences = new Map<string, number>();   // real -> count
@@ -131,7 +131,7 @@ function sanitize(diff: string) {
   };
 }
 
-function restore(text: string, reverseMap: Map<string, string>): string {
+export function restore(text: string, reverseMap: Map<string, string>): string {
   return text.replace(/fn_\d{4}/g, (tok) => reverseMap.get(tok) ?? tok);
 }
 

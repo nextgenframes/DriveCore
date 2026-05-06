@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
 import { Route as DashboardReportsRouteImport } from './routes/dashboard.reports'
+import { Route as DashboardForensicRouteImport } from './routes/dashboard.forensic'
 import { Route as DashboardComplianceRouteImport } from './routes/dashboard.compliance'
 import { Route as DashboardCoachingRouteImport } from './routes/dashboard.coaching'
 import { Route as DashboardBranchDebugRouteImport } from './routes/dashboard.branch-debug'
@@ -44,6 +45,11 @@ const DashboardReportsRoute = DashboardReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardForensicRoute = DashboardForensicRouteImport.update({
+  id: '/forensic',
+  path: '/forensic',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardComplianceRoute = DashboardComplianceRouteImport.update({
   id: '/compliance',
   path: '/compliance',
@@ -72,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/branch-debug': typeof DashboardBranchDebugRoute
   '/dashboard/coaching': typeof DashboardCoachingRoute
   '/dashboard/compliance': typeof DashboardComplianceRoute
+  '/dashboard/forensic': typeof DashboardForensicRoute
   '/dashboard/reports': typeof DashboardReportsRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/api/public/branch-debug': typeof ApiPublicBranchDebugRoute
@@ -82,6 +89,7 @@ export interface FileRoutesByTo {
   '/dashboard/branch-debug': typeof DashboardBranchDebugRoute
   '/dashboard/coaching': typeof DashboardCoachingRoute
   '/dashboard/compliance': typeof DashboardComplianceRoute
+  '/dashboard/forensic': typeof DashboardForensicRoute
   '/dashboard/reports': typeof DashboardReportsRoute
   '/dashboard': typeof DashboardIndexRoute
   '/api/public/branch-debug': typeof ApiPublicBranchDebugRoute
@@ -94,6 +102,7 @@ export interface FileRoutesById {
   '/dashboard/branch-debug': typeof DashboardBranchDebugRoute
   '/dashboard/coaching': typeof DashboardCoachingRoute
   '/dashboard/compliance': typeof DashboardComplianceRoute
+  '/dashboard/forensic': typeof DashboardForensicRoute
   '/dashboard/reports': typeof DashboardReportsRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/api/public/branch-debug': typeof ApiPublicBranchDebugRoute
@@ -107,6 +116,7 @@ export interface FileRouteTypes {
     | '/dashboard/branch-debug'
     | '/dashboard/coaching'
     | '/dashboard/compliance'
+    | '/dashboard/forensic'
     | '/dashboard/reports'
     | '/dashboard/'
     | '/api/public/branch-debug'
@@ -117,6 +127,7 @@ export interface FileRouteTypes {
     | '/dashboard/branch-debug'
     | '/dashboard/coaching'
     | '/dashboard/compliance'
+    | '/dashboard/forensic'
     | '/dashboard/reports'
     | '/dashboard'
     | '/api/public/branch-debug'
@@ -128,6 +139,7 @@ export interface FileRouteTypes {
     | '/dashboard/branch-debug'
     | '/dashboard/coaching'
     | '/dashboard/compliance'
+    | '/dashboard/forensic'
     | '/dashboard/reports'
     | '/dashboard/'
     | '/api/public/branch-debug'
@@ -177,6 +189,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardReportsRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/dashboard/forensic': {
+      id: '/dashboard/forensic'
+      path: '/forensic'
+      fullPath: '/dashboard/forensic'
+      preLoaderRoute: typeof DashboardForensicRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/dashboard/compliance': {
       id: '/dashboard/compliance'
       path: '/compliance'
@@ -212,6 +231,7 @@ interface DashboardRouteChildren {
   DashboardBranchDebugRoute: typeof DashboardBranchDebugRoute
   DashboardCoachingRoute: typeof DashboardCoachingRoute
   DashboardComplianceRoute: typeof DashboardComplianceRoute
+  DashboardForensicRoute: typeof DashboardForensicRoute
   DashboardReportsRoute: typeof DashboardReportsRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
 }
@@ -220,6 +240,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardBranchDebugRoute: DashboardBranchDebugRoute,
   DashboardCoachingRoute: DashboardCoachingRoute,
   DashboardComplianceRoute: DashboardComplianceRoute,
+  DashboardForensicRoute: DashboardForensicRoute,
   DashboardReportsRoute: DashboardReportsRoute,
   DashboardIndexRoute: DashboardIndexRoute,
 }
@@ -237,3 +258,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

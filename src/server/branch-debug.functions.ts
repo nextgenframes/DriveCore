@@ -18,10 +18,19 @@ export type Suspect = {
   afterSnippet: string | null;
 };
 
+export type AuditEntry = { token: string; real: string; occurrences: number };
+export type AuditSample = { original: string; sanitized: string };
+
 export type DebugResult = {
   suspects: Suspect[];
   summary: string;
   sanitizationStats: { identifiersTokenized: number; commentsStripped: number; secretsBlocked: number };
+  audit: {
+    tokenMap: AuditEntry[];               // real -> token, sorted by occurrence
+    redactedComments: string[];           // up to 20 stripped comment lines (already comment-only, safe to show)
+    secretMatches: { pattern: string; replaced: string }[]; // never the real secret
+    sample: AuditSample;                  // first ~30 lines: original vs sanitized side-by-side
+  };
 };
 
 // ───────────────────────── IP Shield: sanitizer ─────────────────────────

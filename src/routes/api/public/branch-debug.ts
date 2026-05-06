@@ -1,17 +1,58 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { analyzeDiff } from "@/server/branch-debug.functions";
 
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
+// This endpoint exists for the VS Code / CLI helper. It is no longer open to
+// the world: every request must carry a shared bearer token that matches the
+// server-side BRANCH_DEBUG_TOKEN secret. CORS is also restricted.
+
+const ALLOWED_ORIGINS = new Set<string>([
+  // Add additional trusted origins (e.g. your VS Code extension origin) here.
+]);
+
+const MAX_BODY_BYTES = 256 * 1024; // 256KB hard cap
+
+function corsHeaders(origin: string | null): Record<string, string> {
+  const allow = origin && ALLOWED_ORIGINS.has(origin) ? origin : "null";
+  return {
+    "Access-Control-Allow-Origin": allow,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Vary": "Origin",
+  };
+}
+
+function timingSafeEqualStr(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  let r = 0;
+  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return r === 0;
+}
 
 export const Route = createFileRoute("/api/public/branch-debug")({
   server: {
     handlers: {
-      OPTIONS: async () => new Response(null, { status: 204, headers: CORS }),
+      OPTIONS: async ({ request }) =>
+        new Response(null, { status: 204, headers: corsHeaders(request.headers.get("origin")) }),
       POST: async ({ request }) => {
+        const headers = corsHeaders(request.headers.get("origin"));
+
+        // 1) Auth — require a server-configured shared secret
+        const expected = process.env.BRANCH_DEBUG_TOKEN;
+        if (!expected) {
+          return Response.json({ error: "Endpoint disabled" }, { status: 503, headers });
+        }
+        const auth = request.headers.get("authorization") ?? "";
+        const provided = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+        if (!provided || !timingSafeEqualStr(provided, expected)) {
+          return Response.json({ error: "Unauthorized" }, { status: 401, headers });
+        }
+
+        // 2) Body size cap (defense in depth — schema also caps diff length)
+        const len = Number(request.headers.get("content-length") ?? "0");
+        if (len > MAX_BODY_BYTES) {
+          return Response.json({ error: "Payload too large" }, { status: 413, headers });
+        }
+
         try {
           const body = await request.json().catch(() => ({}));
           const diff = typeof body.diff === "string" ? body.diff : "";
@@ -20,12 +61,14 @@ export const Route = createFileRoute("/api/public/branch-debug")({
           const editor = body.editor === "cursor" ? "cursor" : "vscode";
 
           if (!diff || !failureDescription) {
-            return Response.json({ error: "diff and failureDescription are required" }, { status: 400, headers: CORS });
+            return Response.json({ error: "diff and failureDescription are required" }, { status: 400, headers });
+          }
+          if (diff.length > 200_000 || failureDescription.length > 5_000) {
+            return Response.json({ error: "Input too large" }, { status: 413, headers });
           }
 
           const result = await analyzeDiff(diff, failureDescription);
 
-          // Build IDE deep links if we know the absolute repo root
           const prefix = editor === "cursor" ? "cursor://file/" : "vscode://file/";
           const suspects = result.suspects.map((s) => ({
             ...s,
@@ -34,10 +77,10 @@ export const Route = createFileRoute("/api/public/branch-debug")({
               : null,
           }));
 
-          return Response.json({ ...result, suspects }, { headers: CORS });
-        } catch (err) {
-          const message = err instanceof Error ? err.message : "Unknown error";
-          return Response.json({ error: message }, { status: 500, headers: CORS });
+          return Response.json({ ...result, suspects }, { headers });
+        } catch {
+          // Never reflect internal error details to the caller
+          return Response.json({ error: "Internal error" }, { status: 500, headers });
         }
       },
     },

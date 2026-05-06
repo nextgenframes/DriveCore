@@ -327,3 +327,123 @@ export const debugBranch = createServerFn({ method: "POST" })
     return analyzeDiff(data.diff, data.failureDescription);
   });
 
+// ───────────────────────── Snippet mode (no diff) ─────────────────────────
+// For users pasting a raw code snippet instead of a unified diff.
+// We still run the IP Shield sanitizer, then ask the AI to locate bugs by line.
+
+const SnippetInputSchema = z.object({
+  snippet: z.string().min(1).max(200_000),
+  failureDescription: z.string().min(1).max(5_000),
+  language: z.string().max(40).optional(),
+});
+
+const snippetTool = {
+  type: "function" as const,
+  function: {
+    name: "submit_snippet_analysis",
+    description: "Submit ranked bug suspects for a raw code snippet (no diff).",
+    parameters: {
+      type: "object",
+      properties: {
+        summary: { type: "string" },
+        suspects: {
+          type: "array",
+          minItems: 1,
+          items: {
+            type: "object",
+            properties: {
+              line: { type: "number", description: "1-based line number in the snippet." },
+              functionToken: { type: "string", description: "Anonymized function/block token, or empty string." },
+              confidence: { type: "string", enum: ["high", "medium", "low"] },
+              mechanism: { type: "string" },
+              changeSummary: { type: "string", description: "Short label of the suspicious pattern." },
+              codeFragment: { type: "string", description: "The exact suspect line(s), anonymized." },
+            },
+            required: ["line", "functionToken", "confidence", "mechanism", "changeSummary", "codeFragment"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["summary", "suspects"],
+      additionalProperties: false,
+    },
+  },
+};
+
+const SNIPPET_SYSTEM = `You are BranchDebug in SNIPPET mode. The user pasted a raw code snippet (not a diff) where identifiers are tokenized as fn_NNNN.
+Find bugs that match the failure description: off-by-one errors, bad thresholds, null/undefined dereferences, race conditions, wrong operators, leaked resources, etc.
+Return 1-N ranked suspects with the 1-based line number from the snippet. Be conservative — only mark "high" if the mechanism directly explains the failure. Always call submit_snippet_analysis.`;
+
+export async function analyzeSnippet(
+  snippet: string,
+  failureDescription: string,
+  language?: string,
+): Promise<DebugResult> {
+  const apiKey = process.env.LOVABLE_API_KEY;
+  if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
+
+  const { sanitized, reverseMap, stats, audit } = sanitize(snippet);
+  const numbered = sanitized.split("\n").map((l, i) => `${String(i + 1).padStart(4, " ")} | ${l}`).join("\n");
+
+  const userContent = `LANGUAGE: ${language || "auto-detect"}\n\nFAILURE DESCRIPTION (sanitized):\n${sanitize(failureDescription).sanitized}\n\nCODE SNIPPET (line-numbered, sanitized):\n${numbered.slice(0, 40_000)}`;
+
+  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: SNIPPET_SYSTEM },
+        { role: "user", content: userContent },
+      ],
+      tools: [snippetTool],
+      tool_choice: { type: "function", function: { name: "submit_snippet_analysis" } },
+    }),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text();
+    if (resp.status === 429) throw new Error("Rate limit reached. Try again shortly.");
+    if (resp.status === 402) throw new Error("AI credits exhausted. Add credits in Workspace > Usage.");
+    throw new Error(`AI gateway error ${resp.status}: ${text.slice(0, 300)}`);
+  }
+
+  const json = await resp.json();
+  const toolCall = json.choices?.[0]?.message?.tool_calls?.[0];
+  if (!toolCall?.function?.arguments) throw new Error("AI did not return structured analysis.");
+
+  const parsed = JSON.parse(toolCall.function.arguments) as {
+    summary: string;
+    suspects: { line: number; functionToken: string; confidence: "high" | "medium" | "low"; mechanism: string; changeSummary: string; codeFragment: string }[];
+  };
+
+  const snippetLines = snippet.split("\n");
+  const suspects: Suspect[] = parsed.suspects.map((s) => ({
+    filePath: language ? `snippet.${language}` : "snippet",
+    functionName: s.functionToken ? restore(s.functionToken, reverseMap) : null,
+    lineStart: s.line,
+    lineEnd: s.line,
+    confidence: s.confidence,
+    mechanism: restore(s.mechanism, reverseMap),
+    changeSummary: restore(s.changeSummary, reverseMap),
+    beforeSnippet: null,
+    afterSnippet: snippetLines[s.line - 1] ?? restore(s.codeFragment, reverseMap),
+  })).sort((a, b) => {
+    const order = { high: 0, medium: 1, low: 2 } as const;
+    return order[a.confidence] - order[b.confidence];
+  });
+
+  return {
+    summary: restore(parsed.summary, reverseMap),
+    suspects,
+    sanitizationStats: stats,
+    audit,
+  };
+}
+
+export const debugSnippet = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => SnippetInputSchema.parse(d))
+  .handler(async ({ data }): Promise<DebugResult> => {
+    return analyzeSnippet(data.snippet, data.failureDescription, data.language);
+  });
+

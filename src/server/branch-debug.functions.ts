@@ -53,14 +53,26 @@ const RESERVED = new Set([
 function sanitize(diff: string) {
   const tokenMap = new Map<string, string>();      // real -> token
   const reverseMap = new Map<string, string>();    // token -> real
+  const occurrences = new Map<string, number>();   // real -> count
+  const redactedComments: string[] = [];
+  const secretMatches: { pattern: string; replaced: string }[] = [];
   let counter = 1;
   let commentsStripped = 0;
   let secretsBlocked = 0;
 
   // Strip secrets first
-  for (const re of SECRET_PATTERNS) {
-    diff = diff.replace(re, () => { secretsBlocked++; return "[SECRET_REDACTED]"; });
-  }
+  const PATTERN_LABELS = ["api-key/secret/token assignment", "OpenAI key (sk-…)", "JWT bearer"];
+  SECRET_PATTERNS.forEach((re, idx) => {
+    diff = diff.replace(re, (match) => {
+      secretsBlocked++;
+      // Only record a safe length-summary, NEVER the secret itself
+      secretMatches.push({
+        pattern: PATTERN_LABELS[idx] ?? "secret",
+        replaced: `[REDACTED ${match.length} chars]`,
+      });
+      return "[SECRET_REDACTED]";
+    });
+  });
 
   // Strip comments line-wise (#, //, /* */)
   const lines = diff.split("\n").map((line) => {
@@ -69,12 +81,17 @@ function sanitize(diff: string) {
       .replace(/(^|\s)#.*$/g, "$1")
       .replace(/\/\/.*$/g, "")
       .replace(/\/\*[\s\S]*?\*\//g, "");
-    if (stripped !== original) commentsStripped++;
+    if (stripped !== original) {
+      commentsStripped++;
+      const removed = original.slice(stripped.length).trim();
+      if (removed && redactedComments.length < 20) redactedComments.push(removed);
+    }
     return stripped;
   });
 
   const tokenize = (name: string): string => {
     if (RESERVED.has(name) || /^\d+$/.test(name) || name.length < 3) return name;
+    occurrences.set(name, (occurrences.get(name) ?? 0) + 1);
     let tok = tokenMap.get(name);
     if (!tok) {
       tok = `fn_${String(counter++).padStart(4, "0")}`;
@@ -87,16 +104,30 @@ function sanitize(diff: string) {
   // Tokenize identifiers (simple heuristic: snake_case / camelCase words)
   const sanitizedLines = lines.map((line) => {
     if (line.startsWith("diff --git") || line.startsWith("index ") || line.startsWith("@@")) {
-      // preserve hunk headers but tokenize file paths
       return line.replace(/[A-Za-z_][A-Za-z0-9_]{2,}/g, (m) => tokenize(m));
     }
     return line.replace(/[A-Za-z_][A-Za-z0-9_]{2,}/g, (m) => tokenize(m));
   });
 
+  const sanitized = sanitizedLines.join("\n");
+
+  // Build audit token map sorted by occurrence (most-used first)
+  const auditMap: AuditEntry[] = Array.from(tokenMap.entries())
+    .map(([real, token]) => ({ token, real, occurrences: occurrences.get(real) ?? 0 }))
+    .sort((a, b) => b.occurrences - a.occurrences);
+
+  // Sample: first 30 non-empty lines, original (post-secret-redaction) vs sanitized
+  const SAMPLE_LINES = 30;
+  const sample: AuditSample = {
+    original: diff.split("\n").slice(0, SAMPLE_LINES).join("\n"),
+    sanitized: sanitized.split("\n").slice(0, SAMPLE_LINES).join("\n"),
+  };
+
   return {
-    sanitized: sanitizedLines.join("\n"),
+    sanitized,
     reverseMap,
     stats: { identifiersTokenized: tokenMap.size, commentsStripped, secretsBlocked },
+    audit: { tokenMap: auditMap, redactedComments, secretMatches, sample },
   };
 }
 

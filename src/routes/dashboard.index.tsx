@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { UploadDialog } from "@/components/upload-dialog";
+import { AgentPipeline } from "@/components/agent-pipeline";
 import { SeverityBadge } from "@/components/severity-badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";

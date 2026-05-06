@@ -905,22 +905,43 @@ function StatCell({ label, value, highlight }: { label: string; value: number; h
 type JiraConfig = {
   baseUrl: string;
   projectKey: string;
+  issueType: string;
   assignee: string;
   labels: string;
   components: string;
+  descriptionTemplate: string;
 };
 
 const JIRA_CONFIG_KEY = "branchdebug.jiraConfig";
 
+const DEFAULT_JIRA_TEMPLATE = `h2. Context
+Briefly describe what you were trying to do.
+
+h2. Steps to reproduce
+# 
+# 
+
+h2. Expected vs actual
+
+{{REPORT}}
+
+h2. Notes
+- App: BranchDebug
+- Reporter: {{REPORTER}}
+- Generated: {{TIMESTAMP}}`;
+
 function loadJiraConfig(): JiraConfig {
-  if (typeof window === "undefined") return { baseUrl: "", projectKey: "", assignee: "", labels: "", components: "" };
+  const fallback: JiraConfig = {
+    baseUrl: "", projectKey: "", issueType: "Bug", assignee: "",
+    labels: "", components: "", descriptionTemplate: DEFAULT_JIRA_TEMPLATE,
+  };
+  if (typeof window === "undefined") return fallback;
   try {
     const raw = localStorage.getItem(JIRA_CONFIG_KEY);
-    if (raw) return { baseUrl: "", projectKey: "", assignee: "", labels: "", components: "", ...JSON.parse(raw) };
+    if (raw) return { ...fallback, ...JSON.parse(raw) };
   } catch {}
-  // migrate old key
   const oldBase = localStorage.getItem("branchdebug.jiraBaseUrl") || "";
-  return { baseUrl: oldBase, projectKey: "", assignee: "", labels: "", components: "" };
+  return { ...fallback, baseUrl: oldBase };
 }
 
 function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "snippet" | "unknown" }) {

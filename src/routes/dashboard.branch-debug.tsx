@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
-import { GitBranch, Play, RotateCcw, Shield, ChevronLeft, ChevronRight, Check, Loader2, Sparkles, FileCode, ExternalLink, Copy, Eye, ArrowRight, Download, FileJson, FileText } from "lucide-react";
+import { GitBranch, Play, RotateCcw, Shield, ChevronLeft, ChevronRight, Check, Loader2, Sparkles, FileCode, ExternalLink, Copy, Eye, ArrowRight, Download, FileJson, FileText, Terminal, Edit3, Lock, Send, Brain, Unlock, Target, type LucideIcon } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { debugBranch, debugSnippet, type DebugResult, type Suspect } from "@/server/branch-debug.functions";
 import { Button } from "@/components/ui/button";
@@ -35,38 +35,44 @@ function detectInputType(text: string): "diff" | "snippet" | "unknown" {
   return "snippet";
 }
 
+type Track = "diff" | "snippet" | "both";
+
 const STEPS: {
-  id: number; label: string; sublabel: string; color: string; icon: string;
-  zone: Zone; code: string; detail: string; codeLabel: string;
+  id: number; label: string; sublabel: string; color: string; Icon: LucideIcon;
+  zone: Zone; code: string; detail: string; codeLabel: string; track: Track;
 }[] = [
-  { id: 1, label: "Engineer runs git diff", sublabel: "After a failed deploy or test", color: "#4af0c4", icon: "⌥", zone: "user",
-    code: `git diff main..feature/checkout-fix > diff.txt`,
-    detail: "The engineer notices something broke after merging a branch. They grab the diff between their branch and main — this captures every line that changed.",
-    codeLabel: "TERMINAL" },
-  { id: 2, label: "Paste diff + describe failure", sublabel: "Plain English note", color: "#4af0c4", icon: "✎", zone: "user",
+  { id: 1, label: "Capture the failing change", sublabel: "git diff — or any code snippet", color: "#4af0c4", Icon: Terminal, zone: "user", track: "both",
+    code: `# Diff mode\ngit diff main..feature/checkout-fix\n\n# OR — Snippet mode\n# Just paste the suspicious function\ndef compute_ttc(distance, velocity):\n    if velocity == 0: return float('inf')\n    return distance / velocity`,
+    detail: "Something broke. Either grab a unified git diff between your branch and main, OR copy the single function/file you suspect. BranchDebug auto-detects which one you pasted — no flag, no setup.",
+    codeLabel: "TERMINAL / EDITOR" },
+  { id: 2, label: "Describe the failure in plain English", sublabel: "No structured format required", color: "#4af0c4", Icon: Edit3, zone: "user", track: "both",
     code: `"API throwing 500 on /checkout after deploy.\nCard validation seems broken for Amex cards."`,
-    detail: "The engineer pastes the diff into BranchDebug and writes a plain-English description of what broke. No special format — just what they observed.",
-    codeLabel: "INPUT" },
-  { id: 3, label: "IP Shield — Sanitizer runs", sublabel: "Server-side, before any external call", color: "#ffcc44", icon: "🛡", zone: "server",
-    code: `validate_card()  →  fn_0042\nAmexValidator   →  fn_0019\ncard_number     →  fn_0003\n\n# Comments stripped\n# Secrets blocked`,
-    detail: "BEFORE the diff reaches any AI, the server strips all identifiers and replaces them with anonymous tokens. Comments are removed. The token map is encrypted and stored locally — it never leaves your server.",
+    detail: "Paste your code on the left, write what you observed on the right. Stack traces, vague hunches, log lines — all fine. The AI uses your description to weight which lines matter.",
+    codeLabel: "FAILURE NOTE" },
+  { id: 3, label: "IP Shield sanitizes everything", sublabel: "Server-side, before any external call", color: "#ffcc44", Icon: Lock, zone: "server", track: "both",
+    code: `validate_card   →  fn_0042\nAmexValidator   →  fn_0019\ncard_number     →  fn_0003\n\n# comments stripped\n# secrets [REDACTED]`,
+    detail: "Before a single byte leaves your server, identifiers are tokenized, comments are stripped, and secret patterns (API keys, JWTs, bearer tokens) are redacted. The token map stays in-memory on your server.",
     codeLabel: "SANITIZER OUTPUT" },
-  { id: 4, label: "Sanitized diff sent to AI", sublabel: "Zero data retention API tier", color: "#aa88ff", icon: "→", zone: "ai",
-    code: `diff --git a/fn_0019.py b/fn_0019.py\n-  if fn_0003 > 15:\n+  if fn_0003 > 16:`,
-    detail: "Only the anonymized diff — with no real function names, file paths, or comments — is sent to the AI API. Even if this were intercepted, it reveals nothing about your codebase.",
-    codeLabel: "PAYLOAD SENT TO AI" },
-  { id: 5, label: "AI analyzes failure pattern", sublabel: "Root cause mapping", color: "#aa88ff", icon: "◎", zone: "ai",
-    code: `{\n  "suspect": "fn_0019 :: fn_0042",\n  "confidence": "High",\n  "mechanism": "Threshold change\n    from 15→16 excludes valid\n    fn_0003 lengths"\n}`,
-    detail: "The AI cross-references the anonymized diff against the failure description. It identifies which changed lines are most likely responsible and explains the mechanism.",
+  { id: 4, label: "Anonymized payload sent to AI", sublabel: "Zero-retention gateway", color: "#aa88ff", Icon: Send, zone: "ai", track: "both",
+    code: `// Diff track\ndiff --git a/fn_0019.py b/fn_0019.py\n-  if fn_0003 > 15:\n+  if fn_0003 > 16:\n\n// Snippet track\n  12 | def fn_0042(fn_0003):\n  13 |     if len(fn_0003) > 15:`,
+    detail: "Whether you sent a diff or a snippet, only the anonymized version reaches the model. Even if intercepted, the payload reveals nothing about your real codebase.",
+    codeLabel: "PAYLOAD TO AI" },
+  { id: 5, label: "AI ranks suspects by mechanism", sublabel: "Tool-calling for structured output", color: "#aa88ff", Icon: Brain, zone: "ai", track: "both",
+    code: `{\n  "summary": "Threshold off-by-one\n     excludes valid 15-digit Amex",\n  "suspects": [{\n    "hunkIndex": 0,\n    "confidence": "high",\n    "mechanism": "..."\n  }]\n}`,
+    detail: "The model returns ranked suspects with confidence + cause-and-effect. Diff mode references hunk indexes; snippet mode references line numbers. Both come back as strict JSON.",
     codeLabel: "AI RESPONSE (anonymized)" },
-  { id: 6, label: "Token map restores real names", sublabel: "Encrypted map decrypted server-side", color: "#ffcc44", icon: "↺", zone: "server",
+  { id: 6, label: "Token map restores real names", sublabel: "Decrypted server-side", color: "#ffcc44", Icon: Unlock, zone: "server", track: "both",
     code: `fn_0019  →  AmexValidator\nfn_0042  →  validate_card\nfn_0003  →  card_number`,
-    detail: "The server decrypts the token map and replaces all anonymous tokens in the AI response with your real function and file names. The real-name mapping never left your server.",
+    detail: "Your server swaps tokens back to real identifiers in the AI response. The model never saw — and still doesn't know — your actual function or file names.",
     codeLabel: "TOKEN RESTORATION" },
-  { id: 7, label: "Results shown to engineer", sublabel: "Ranked suspects + auto Jira ticket", color: "#4af0c4", icon: "✓", zone: "user",
-    code: `HIGH  payments/AmexValidator.py\n      :: validate_card()\n\nThreshold change 15→16 excludes\nvalid 15-digit Amex card_numbers`,
-    detail: "The engineer sees real file paths, real function names, confidence scores, and a plain-English explanation of why each change causes the observed failure. One click creates a Jira ticket.",
-    codeLabel: "RESULT" },
+  { id: 7, label: "Jump to the suspect line in your editor", sublabel: "vscode:// & cursor:// deep links", color: "#4af0c4", Icon: Target, zone: "user", track: "both",
+    code: `HIGH  payments/AmexValidator.py:14\n      validate_card()\n\n→ Click "Jump" to open VS Code\n  at the exact line.`,
+    detail: "Each suspect shows real file path + line, confidence, and a one-click deep link that opens VS Code or Cursor at the offending location. Copy the location too — handy for tickets.",
+    codeLabel: "RANKED SUSPECTS" },
+  { id: 8, label: "Export the report", sublabel: "Markdown for tickets · JSON for tooling", color: "#4af0c4", Icon: Download, zone: "user", track: "both",
+    code: `branchdebug-report-2026-05-06.md\nbranchdebug-report-2026-05-06.json\n\n# .md  → paste into Jira / PR description\n# .json → feed to your incident pipeline`,
+    detail: "One click exports a self-contained report: verdict, sanitization stats, and every ranked suspect with mechanism + before/after diff. Markdown is review-ready; JSON is automation-ready.",
+    codeLabel: "EXPORT" },
 ];
 
 const ZONES: Record<Zone, { label: string; color: string }> = {
@@ -279,13 +285,13 @@ index aaa..bbb 100644
                   style={isActive ? { borderColor: s.color + "80", background: s.color + "12" } : undefined}
                 >
                   <div
-                    className="h-7 w-7 rounded-full flex items-center justify-center text-[11px] font-bold font-mono shrink-0"
+                    className="h-7 w-7 rounded-full flex items-center justify-center shrink-0"
                     style={{
                       background: isActive ? s.color : isRevealed ? s.color + "30" : "hsl(var(--muted))",
                       color: isActive ? "#001a0d" : s.color,
                     }}
                   >
-                    {s.id}
+                    <s.Icon className="h-3.5 w-3.5" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium truncate">{s.label}</div>
@@ -307,7 +313,7 @@ index aaa..bbb 100644
               className="h-12 w-12 rounded-xl flex items-center justify-center text-xl shrink-0"
               style={{ background: step.color + "20", color: step.color, border: `1px solid ${step.color}40` }}
             >
-              {step.icon}
+              <step.Icon className="h-6 w-6" />
             </div>
             <div className="space-y-1">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">

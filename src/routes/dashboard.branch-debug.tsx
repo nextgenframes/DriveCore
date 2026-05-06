@@ -944,10 +944,46 @@ function loadJiraConfig(): JiraConfig {
   return { ...fallback, baseUrl: oldBase };
 }
 
+const ALLOWED_ISSUE_TYPES = ["Bug", "Task", "Story", "Incident", "Epic", "Sub-task", "Improvement", "New Feature"];
+
+function validateJira(j: JiraConfig): { baseUrl?: string; issueType?: string } {
+  const errors: { baseUrl?: string; issueType?: string } = {};
+  const raw = j.baseUrl.trim();
+  if (!raw) {
+    errors.baseUrl = "Base URL is required";
+  } else {
+    try {
+      const u = new URL(raw);
+      if (u.protocol !== "https:" && u.protocol !== "http:") {
+        errors.baseUrl = "Must start with https:// or http://";
+      } else if (!u.hostname.includes(".")) {
+        errors.baseUrl = "Enter a full hostname (e.g. acme.atlassian.net)";
+      } else if (u.search || u.hash || (u.pathname && u.pathname !== "/" && u.pathname !== "")) {
+        errors.baseUrl = "Use the base URL only — no path, query, or hash";
+      }
+    } catch {
+      errors.baseUrl = "Not a valid URL";
+    }
+  }
+  const it = j.issueType.trim();
+  if (it) {
+    if (it.length > 60) {
+      errors.issueType = "Issue type is too long";
+    } else if (!/^[A-Za-z][A-Za-z0-9 \-]*$/.test(it)) {
+      errors.issueType = "Letters, numbers, spaces and hyphens only";
+    } else if (!ALLOWED_ISSUE_TYPES.some((t) => t.toLowerCase() === it.toLowerCase())) {
+      errors.issueType = `Unknown type. Try: ${ALLOWED_ISSUE_TYPES.slice(0, 4).join(", ")}…`;
+    }
+  }
+  return errors;
+}
+
 function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "snippet" | "unknown" }) {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   const [jiraOpen, setJiraOpen] = useState(false);
   const [jira, setJira] = useState<JiraConfig>(() => loadJiraConfig());
+  const jiraErrors = validateJira(jira);
+  const hasJiraErrors = Object.keys(jiraErrors).length > 0;
 
   const download = (filename: string, content: string, mime: string) => {
     const blob = new Blob([content], { type: mime });

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
-import { GitBranch, Play, RotateCcw, Shield, ChevronLeft, ChevronRight, Check, Loader2, Sparkles, FileCode, ExternalLink, Copy, Eye, ArrowRight, Download, FileJson, FileText, Terminal, Edit3, Lock, Send, Brain, Unlock, Target, Ticket, type LucideIcon } from "lucide-react";
+import { GitBranch, Play, RotateCcw, Shield, ChevronLeft, ChevronRight, Check, Loader2, Sparkles, FileCode, ExternalLink, Copy, Eye, ArrowRight, Download, FileJson, FileText, Terminal, Edit3, Lock, Send, Brain, Unlock, Target, Ticket, Link2, Paperclip, type LucideIcon } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { debugBranch, debugSnippet, type DebugResult, type Suspect } from "@/server/branch-debug.functions";
 import { Button } from "@/components/ui/button";
@@ -905,22 +905,43 @@ function StatCell({ label, value, highlight }: { label: string; value: number; h
 type JiraConfig = {
   baseUrl: string;
   projectKey: string;
+  issueType: string;
   assignee: string;
   labels: string;
   components: string;
+  descriptionTemplate: string;
 };
 
 const JIRA_CONFIG_KEY = "branchdebug.jiraConfig";
 
+const DEFAULT_JIRA_TEMPLATE = `h2. Context
+Briefly describe what you were trying to do.
+
+h2. Steps to reproduce
+# 
+# 
+
+h2. Expected vs actual
+
+{{REPORT}}
+
+h2. Notes
+- App: BranchDebug
+- Reporter: {{REPORTER}}
+- Generated: {{TIMESTAMP}}`;
+
 function loadJiraConfig(): JiraConfig {
-  if (typeof window === "undefined") return { baseUrl: "", projectKey: "", assignee: "", labels: "", components: "" };
+  const fallback: JiraConfig = {
+    baseUrl: "", projectKey: "", issueType: "Bug", assignee: "",
+    labels: "", components: "", descriptionTemplate: DEFAULT_JIRA_TEMPLATE,
+  };
+  if (typeof window === "undefined") return fallback;
   try {
     const raw = localStorage.getItem(JIRA_CONFIG_KEY);
-    if (raw) return { baseUrl: "", projectKey: "", assignee: "", labels: "", components: "", ...JSON.parse(raw) };
+    if (raw) return { ...fallback, ...JSON.parse(raw) };
   } catch {}
-  // migrate old key
   const oldBase = localStorage.getItem("branchdebug.jiraBaseUrl") || "";
-  return { baseUrl: oldBase, projectKey: "", assignee: "", labels: "", components: "" };
+  return { ...fallback, baseUrl: oldBase };
 }
 
 function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "snippet" | "unknown" }) {
@@ -993,7 +1014,7 @@ function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "
     download(`branchdebug-report-${stamp}.md`, lines.join("\n"), "text/markdown");
   };
 
-  const buildJiraDescription = () => {
+  const buildReportSection = () => {
     const body: string[] = [];
     body.push(`*Mode:* ${mode === "snippet" ? "Code snippet" : mode === "diff" ? "Git diff" : "Unknown"}`);
     body.push(`*Generated:* ${new Date().toLocaleString()}`);
@@ -1028,37 +1049,75 @@ function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "
     return body.join("\n");
   };
 
-  const createJiraTicket = async () => {
-    if (!jira.baseUrl) {
-      toast.error("Jira base URL is required");
-      return;
-    }
-    const base = jira.baseUrl.replace(/\/$/, "");
-    localStorage.setItem(JIRA_CONFIG_KEY, JSON.stringify({ ...jira, baseUrl: base }));
+  const buildJiraDescription = () => {
+    const reporter = (typeof window !== "undefined" && (window as any).__bdReporter) || "BranchDebug user";
+    const tpl = jira.descriptionTemplate?.includes("{{REPORT}}")
+      ? jira.descriptionTemplate
+      : `${jira.descriptionTemplate || ""}\n\n{{REPORT}}`;
+    return tpl
+      .replaceAll("{{REPORT}}", buildReportSection())
+      .replaceAll("{{TIMESTAMP}}", new Date().toLocaleString())
+      .replaceAll("{{REPORTER}}", reporter)
+      .replaceAll("{{MODE}}", mode);
+  };
 
+  const buildJiraUrl = () => {
+    const base = jira.baseUrl.replace(/\/$/, "");
     const top = result.suspects[0];
     const summary = top
       ? `BranchDebug: ${top.changeSummary} (${top.filePath})`
       : `BranchDebug: ${(result.summary || "Root-cause report").slice(0, 80)}`;
-
-    const description = buildJiraDescription();
-    try {
-      await navigator.clipboard.writeText(description);
-      toast.success("Ticket description copied — paste into Jira");
-    } catch {
-      toast.message("Could not copy automatically — paste manually in Jira");
-    }
-
     const params = new URLSearchParams();
     params.set("summary", summary);
+    params.set("description", buildJiraDescription());
     if (jira.projectKey.trim()) params.set("pid", jira.projectKey.trim());
+    if (jira.issueType.trim()) params.set("issuetype", jira.issueType.trim());
     if (jira.assignee.trim()) params.set("assignee", jira.assignee.trim());
     jira.labels.split(",").map((l) => l.trim()).filter(Boolean).forEach((l) => params.append("labels", l));
     jira.components.split(",").map((c) => c.trim()).filter(Boolean).forEach((c) => params.append("components", c));
+    return `${base}/secure/CreateIssue!default.jspa?${params.toString()}`;
+  };
 
-    window.open(`${base}/secure/CreateIssue!default.jspa?${params.toString()}`, "_blank", "noopener,noreferrer");
+  const persistJira = () => {
+    const next = { ...jira, baseUrl: jira.baseUrl.replace(/\/$/, "") };
+    localStorage.setItem(JIRA_CONFIG_KEY, JSON.stringify(next));
+  };
+
+  const createJiraTicket = async () => {
+    if (!jira.baseUrl) { toast.error("Jira base URL is required"); return; }
+    persistJira();
+    // Also download the report files so the user can attach them after Jira opens
+    exportMarkdown();
+    exportJson();
+    try {
+      await navigator.clipboard.writeText(buildJiraDescription());
+      toast.success("Description copied · .md + .json downloaded — attach in Jira");
+    } catch {
+      toast.message("Description ready — attach the downloaded .md/.json in Jira");
+    }
+    window.open(buildJiraUrl(), "_blank", "noopener,noreferrer");
     setJiraOpen(false);
   };
+
+  const copyJiraLink = async () => {
+    if (!jira.baseUrl) { toast.error("Jira base URL is required"); return; }
+    persistJira();
+    try {
+      await navigator.clipboard.writeText(buildJiraUrl());
+      toast.success("Jira create-issue link copied to clipboard");
+    } catch {
+      toast.error("Could not copy link");
+    }
+  };
+
+  const textFields = [
+    { key: "baseUrl", label: "Base URL *", placeholder: "https://acme.atlassian.net" },
+    { key: "projectKey", label: "Project key / ID", placeholder: "ENG or 10001" },
+    { key: "issueType", label: "Issue type", placeholder: "Bug, Task, Story, Incident" },
+    { key: "assignee", label: "Assignee (username / accountId)", placeholder: "jdoe" },
+    { key: "labels", label: "Labels (comma-separated)", placeholder: "bug, regression, branch-debug" },
+    { key: "components", label: "Components (comma-separated)", placeholder: "API, Auth" },
+  ] as const;
 
   return (
     <div className="flex items-center gap-1">
@@ -1086,11 +1145,11 @@ function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "
 
       {jiraOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 overflow-y-auto"
           onClick={() => setJiraOpen(false)}
         >
           <div
-            className="w-full max-w-md bg-[#0d1520] border border-border rounded-lg p-5 space-y-3"
+            className="w-full max-w-lg my-8 bg-[#0d1520] border border-border rounded-lg p-5 space-y-3"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2 text-[#2684ff]">
@@ -1098,34 +1157,63 @@ function ExportButtons({ result, mode }: { result: DebugResult; mode: "diff" | "
               <h3 className="text-sm font-mono uppercase tracking-widest">Create Jira ticket</h3>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Optional fields are pre-applied to the new issue. Saved locally for next time.
+              Optional fields pre-fill the new issue. Saved locally. Use {"{{REPORT}}"}, {"{{TIMESTAMP}}"}, {"{{REPORTER}}"}, {"{{MODE}}"} in the template.
             </p>
 
-            {([
-              { key: "baseUrl", label: "Base URL *", placeholder: "https://acme.atlassian.net" },
-              { key: "projectKey", label: "Project key / ID", placeholder: "ENG or 10001" },
-              { key: "assignee", label: "Assignee (username / accountId)", placeholder: "jdoe" },
-              { key: "labels", label: "Labels (comma-separated)", placeholder: "bug, regression, branch-debug" },
-              { key: "components", label: "Components (comma-separated)", placeholder: "API, Auth" },
-            ] as const).map((f) => (
-              <label key={f.key} className="block">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{f.label}</span>
-                <input
-                  type="text"
-                  value={jira[f.key]}
-                  onChange={(e) => setJira({ ...jira, [f.key]: e.target.value })}
-                  placeholder={f.placeholder}
-                  className="mt-1 w-full h-8 px-2 rounded-md bg-[#080c10] border border-border text-xs font-mono text-foreground focus:border-[#2684ff] outline-none"
-                />
-              </label>
-            ))}
+            <div className="grid grid-cols-2 gap-2">
+              {textFields.map((f) => (
+                <label key={f.key} className={f.key === "baseUrl" ? "col-span-2 block" : "block"}>
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{f.label}</span>
+                  <input
+                    type="text"
+                    value={jira[f.key]}
+                    onChange={(e) => setJira({ ...jira, [f.key]: e.target.value })}
+                    placeholder={f.placeholder}
+                    className="mt-1 w-full h-8 px-2 rounded-md bg-[#080c10] border border-border text-xs font-mono text-foreground focus:border-[#2684ff] outline-none"
+                  />
+                </label>
+              ))}
+            </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2">
+            <label className="block">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Description template</span>
+                <button
+                  type="button"
+                  onClick={() => setJira({ ...jira, descriptionTemplate: DEFAULT_JIRA_TEMPLATE })}
+                  className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-[#2684ff]"
+                >
+                  Reset
+                </button>
+              </div>
+              <textarea
+                value={jira.descriptionTemplate}
+                onChange={(e) => setJira({ ...jira, descriptionTemplate: e.target.value })}
+                rows={6}
+                className="mt-1 w-full px-2 py-1.5 rounded-md bg-[#080c10] border border-border text-xs font-mono text-foreground focus:border-[#2684ff] outline-none resize-y"
+              />
+            </label>
+
+            <div className="rounded-md border border-border bg-[#080c10] p-2 flex items-start gap-2">
+              <Paperclip className="h-3 w-3 text-[#2684ff] mt-0.5 flex-shrink-0" />
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                Jira's web URL doesn't support direct file attachments. When you click <strong className="text-foreground">Open in Jira</strong>, the Markdown + JSON reports are auto-downloaded so you can drag-drop them onto the new issue.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 flex-wrap">
               <button
                 onClick={() => setJiraOpen(false)}
                 className="h-8 px-3 rounded-md border border-border text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground"
               >
                 Cancel
+              </button>
+              <button
+                onClick={copyJiraLink}
+                className="h-8 px-3 rounded-md border border-[#2684ff]/40 bg-[#2684ff]/10 hover:bg-[#2684ff]/20 text-[#2684ff] text-[10px] font-mono uppercase tracking-widest flex items-center gap-1"
+                title="Copy the full Jira create-issue URL with all parameters"
+              >
+                <Link2 className="h-3 w-3" /> Copy link
               </button>
               <button
                 onClick={createJiraTicket}

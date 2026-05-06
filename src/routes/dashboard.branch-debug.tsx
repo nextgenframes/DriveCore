@@ -1,6 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
-import { GitBranch, Play, RotateCcw, Shield, ChevronLeft, ChevronRight, Check } from "lucide-react";
+import { GitBranch, Play, RotateCcw, Shield, ChevronLeft, ChevronRight, Check, Loader2, Sparkles, FileCode, ExternalLink, Copy } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { debugBranch, type DebugResult, type Suspect } from "@/server/branch-debug.functions";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard/branch-debug")({
@@ -98,6 +103,57 @@ function BranchDebugPage() {
   const step = STEPS[active];
   const zone = ZONES[step.zone];
 
+  // ─── Analyzer state ───
+  const [tab, setTab] = useState<"analyzer" | "howto">("analyzer");
+  const [diff, setDiff] = useState("");
+  const [failure, setFailure] = useState("");
+  const [result, setResult] = useState<DebugResult | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [editorBase, setEditorBase] = useState(() => localStorage.getItem("branchdebug.editorBase") ?? "vscode://file/");
+  const debugFn = useServerFn(debugBranch);
+
+  const runAnalysis = async () => {
+    if (!diff.trim() || !failure.trim()) {
+      toast.error("Provide both a diff and a failure description.");
+      return;
+    }
+    setAnalyzing(true);
+    setResult(null);
+    try {
+      const res = await debugFn({ data: { diff, failureDescription: failure } });
+      setResult(res);
+      toast.success(`Found ${res.suspects.length} suspect${res.suspects.length === 1 ? "" : "s"}`);
+    } catch (e: any) {
+      toast.error(e.message ?? "Analysis failed");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const loadSample = () => {
+    setDiff(`diff --git a/payments/AmexValidator.py b/payments/AmexValidator.py
+index 1a2b3c4..5d6e7f8 100644
+--- a/payments/AmexValidator.py
++++ b/payments/AmexValidator.py
+@@ -10,7 +10,7 @@ class AmexValidator:
+     def validate_card(self, card_number):
+         # Amex cards are 15 digits
+-        if len(card_number) > 15:
++        if len(card_number) > 16:
+             return False
+         return self._luhn_check(card_number)
+diff --git a/checkout/handler.py b/checkout/handler.py
+index aaa..bbb 100644
+--- a/checkout/handler.py
++++ b/checkout/handler.py
+@@ -42,6 +42,7 @@ def process_checkout(payload):
+     validator = AmexValidator()
++    payload = sanitize_payload(payload)
+     if not validator.validate_card(payload["card"]):
+         raise ValueError("Invalid card")`);
+    setFailure("API throwing 500 on /checkout after deploy. Card validation seems broken for Amex cards.");
+  };
+
   return (
     <>
       <header className="h-16 border-b border-border flex items-center justify-between px-8 bg-surface/40 backdrop-blur">
@@ -107,7 +163,37 @@ function BranchDebugPage() {
             <GitBranch className="h-4 w-4 text-primary" /> Branch Debug
           </h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1 p-1 rounded-lg bg-surface border border-border">
+          <button
+            onClick={() => setTab("analyzer")}
+            className={cn("px-3 py-1.5 rounded-md text-xs font-mono uppercase tracking-widest transition-colors",
+              tab === "analyzer" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
+          >
+            <Sparkles className="h-3 w-3 inline mr-1.5" /> Analyzer
+          </button>
+          <button
+            onClick={() => setTab("howto")}
+            className={cn("px-3 py-1.5 rounded-md text-xs font-mono uppercase tracking-widest transition-colors",
+              tab === "howto" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
+          >
+            How it works
+          </button>
+        </div>
+      </header>
+
+      {tab === "analyzer" && (
+        <AnalyzerView
+          diff={diff} setDiff={setDiff}
+          failure={failure} setFailure={setFailure}
+          result={result} analyzing={analyzing}
+          onRun={runAnalysis} onSample={loadSample}
+          editorBase={editorBase} setEditorBase={(v) => { setEditorBase(v); localStorage.setItem("branchdebug.editorBase", v); }}
+        />
+      )}
+
+      {tab === "howto" && (
+      <>
+      <div className="px-8 py-3 border-b border-border flex justify-end gap-2 bg-surface/20">
           <button
             onClick={handlePlay}
             className="flex items-center gap-2 px-3 py-2 rounded-md text-xs font-mono uppercase tracking-widest border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
@@ -121,7 +207,6 @@ function BranchDebugPage() {
             <RotateCcw className="h-3 w-3" /> Reset
           </button>
         </div>
-      </header>
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[360px_1fr] min-h-0 overflow-hidden">
         {/* Left: pipeline */}
@@ -279,6 +364,188 @@ function BranchDebugPage() {
           </div>
         </div>
       </div>
+      </>
+      )}
+
+      {/* Analyzer view component */}
+      <AnalyzerStyles />
     </>
   );
 }
+
+function AnalyzerStyles() { return null; }
+
+const CONFIDENCE_STYLES = {
+  high: { bg: "bg-severity-critical/10", border: "border-severity-critical/40", text: "text-severity-critical", dot: "bg-severity-critical" },
+  medium: { bg: "bg-severity-high/10", border: "border-severity-high/40", text: "text-severity-high", dot: "bg-severity-high" },
+  low: { bg: "bg-muted/30", border: "border-border", text: "text-muted-foreground", dot: "bg-muted-foreground" },
+} as const;
+
+function AnalyzerView({
+  diff, setDiff, failure, setFailure, result, analyzing, onRun, onSample, editorBase, setEditorBase,
+}: {
+  diff: string; setDiff: (v: string) => void;
+  failure: string; setFailure: (v: string) => void;
+  result: DebugResult | null; analyzing: boolean;
+  onRun: () => void; onSample: () => void;
+  editorBase: string; setEditorBase: (v: string) => void;
+}) {
+  return (
+    <div className="flex-1 grid grid-cols-1 lg:grid-cols-[480px_1fr] min-h-0 overflow-hidden">
+      {/* Input panel */}
+      <div className="border-r border-border overflow-y-auto p-6 space-y-4 bg-surface/20">
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Unified git diff</label>
+            <button onClick={onSample} className="text-[10px] font-mono uppercase tracking-widest text-primary hover:underline">Load sample</button>
+          </div>
+          <Textarea
+            value={diff}
+            onChange={(e) => setDiff(e.target.value)}
+            placeholder="Paste output of `git diff main..feature/...`"
+            className="font-mono text-xs h-64 resize-none bg-background"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2 block">Failure description</label>
+          <Textarea
+            value={failure}
+            onChange={(e) => setFailure(e.target.value)}
+            placeholder="What broke? Stack trace, error message, observed behavior…"
+            className="text-sm h-28 resize-none bg-background"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2 block">Editor deep-link prefix</label>
+          <input
+            value={editorBase}
+            onChange={(e) => setEditorBase(e.target.value)}
+            className="w-full text-xs font-mono px-3 py-2 rounded-md bg-background border border-border focus:border-primary outline-none"
+            placeholder="vscode://file/  or  cursor://file/"
+          />
+          <p className="text-[10px] text-muted-foreground mt-1">Used to jump directly to suspect lines in your editor.</p>
+        </div>
+        <Button onClick={onRun} disabled={analyzing} className="w-full gap-2">
+          {analyzing ? <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing…</> : <><Sparkles className="h-4 w-4" /> Analyze branch</>}
+        </Button>
+        <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-3 flex gap-2 text-[11px] text-muted-foreground">
+          <Shield className="h-3.5 w-3.5 text-yellow-500 shrink-0 mt-0.5" />
+          <span>Identifiers, comments, and secrets are stripped server-side before any AI call. Real names are restored locally after analysis.</span>
+        </div>
+      </div>
+
+      {/* Results panel */}
+      <div className="overflow-y-auto p-8 space-y-5 max-w-4xl">
+        {!result && !analyzing && (
+          <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground py-24">
+            <Sparkles className="h-10 w-10 mb-4 text-primary/40" />
+            <p className="text-sm font-medium">Paste a diff and describe the failure</p>
+            <p className="text-xs mt-1">BranchDebug will rank suspect changes by likely root cause.</p>
+          </div>
+        )}
+
+        {analyzing && (
+          <div className="rounded-xl border border-primary/30 bg-primary/5 p-6 flex items-center gap-3">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            <div>
+              <p className="font-medium text-sm">Sanitizing diff and analyzing…</p>
+              <p className="text-xs text-muted-foreground">Tokenize → AI ranks suspects → restore real names</p>
+            </div>
+          </div>
+        )}
+
+        {result && (
+          <>
+            <div className="rounded-xl border border-border bg-surface/60 p-5 space-y-3">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Verdict</div>
+              <p className="text-sm leading-relaxed">{result.summary}</p>
+              <div className="flex flex-wrap gap-3 text-[10px] font-mono uppercase tracking-wider text-muted-foreground pt-2 border-t border-border">
+                <span><Shield className="h-3 w-3 inline mr-1 text-yellow-500" />{result.sanitizationStats.identifiersTokenized} identifiers tokenized</span>
+                <span>{result.sanitizationStats.commentsStripped} comment lines stripped</span>
+                <span>{result.sanitizationStats.secretsBlocked} secrets blocked</span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Ranked suspects ({result.suspects.length})</div>
+              {result.suspects.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No suspect changes identified.</p>
+              ) : (
+                result.suspects.map((s, i) => <SuspectCard key={i} suspect={s} editorBase={editorBase} rank={i + 1} />)
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SuspectCard({ suspect, editorBase, rank }: { suspect: Suspect; editorBase: string; rank: number }) {
+  const c = CONFIDENCE_STYLES[suspect.confidence];
+  const link = `${editorBase}${suspect.filePath}:${suspect.lineStart}`;
+
+  const copyLocation = () => {
+    navigator.clipboard.writeText(`${suspect.filePath}:${suspect.lineStart}`);
+    toast.success("Location copied");
+  };
+
+  return (
+    <div className={cn("rounded-xl border p-5 space-y-3", c.border, c.bg)}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className={cn("h-7 w-7 rounded-full flex items-center justify-center text-[11px] font-bold font-mono shrink-0", c.text, "bg-background border", c.border)}>
+            #{rank}
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={cn("text-[10px] font-mono uppercase tracking-widest font-bold px-2 py-0.5 rounded", c.bg, c.text, "border", c.border)}>
+                <span className={cn("inline-block h-1.5 w-1.5 rounded-full mr-1.5", c.dot)} />
+                {suspect.confidence}
+              </span>
+              <span className="text-sm font-semibold">{suspect.changeSummary}</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground mt-1.5 min-w-0">
+              <FileCode className="h-3 w-3 shrink-0" />
+              <span className="truncate">{suspect.filePath}</span>
+              <span className="text-primary">:{suspect.lineStart}{suspect.lineEnd !== suspect.lineStart && `-${suspect.lineEnd}`}</span>
+              {suspect.functionName && <span className="text-muted-foreground/60">· {suspect.functionName}()</span>}
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-1 shrink-0">
+          <button
+            onClick={copyLocation}
+            className="h-7 w-7 rounded-md border border-border bg-background hover:bg-surface flex items-center justify-center text-muted-foreground hover:text-foreground"
+            title="Copy location"
+          >
+            <Copy className="h-3 w-3" />
+          </button>
+          <a
+            href={link}
+            className="h-7 px-2 rounded-md border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-mono uppercase tracking-widest flex items-center gap-1"
+            title="Open in editor"
+          >
+            <ExternalLink className="h-3 w-3" /> Jump
+          </a>
+        </div>
+      </div>
+
+      <p className="text-sm leading-relaxed text-foreground/90">{suspect.mechanism}</p>
+
+      {(suspect.beforeSnippet || suspect.afterSnippet) && (
+        <div className="rounded-lg border border-border bg-background overflow-hidden">
+          <pre className="text-[11px] font-mono leading-relaxed">
+            {suspect.beforeSnippet?.split("\n").map((l, i) => (
+              <div key={`b${i}`} className="px-3 py-0.5 text-severity-critical bg-severity-critical/5">- {l}</div>
+            ))}
+            {suspect.afterSnippet?.split("\n").map((l, i) => (
+              <div key={`a${i}`} className="px-3 py-0.5 text-severity-low bg-severity-low/5">+ {l}</div>
+            ))}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+}
+

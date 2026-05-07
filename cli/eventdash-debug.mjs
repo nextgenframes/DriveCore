@@ -21,15 +21,22 @@ const DEFAULT_ENDPOINT =
   "https://project--bff39f15-1e2d-4d34-8f4b-7070bac6dbae.lovable.app/api/public/branch-debug";
 
 const args = process.argv.slice(2);
-const opts = { base: null, editor: "vscode", endpoint: DEFAULT_ENDPOINT };
+const opts = {
+  base: null,
+  editor: "vscode",
+  endpoint: DEFAULT_ENDPOINT,
+  token: process.env.BRANCH_DEBUG_TOKEN || process.env.LOVABLE_BRANCH_DEBUG_TOKEN || "",
+};
 const positional = [];
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
   if (a === "--base") opts.base = args[++i];
   else if (a === "--editor") opts.editor = args[++i];
   else if (a === "--endpoint") opts.endpoint = args[++i];
+  else if (a === "--token") opts.token = args[++i];
   else if (a === "-h" || a === "--help") {
-    console.log("Usage: node cli/eventdash-debug.mjs [--base <ref>] [--editor vscode|cursor] [--endpoint <url>] \"failure description\"");
+    console.log("Usage: node cli/eventdash-debug.mjs [--base <ref>] [--editor vscode|cursor] [--endpoint <url>] [--token <token>] \"failure description\"");
+    console.log("\nAuth: pass --token, or set BRANCH_DEBUG_TOKEN env var. Required by the server.");
     process.exit(0);
   } else positional.push(a);
 }
@@ -38,6 +45,11 @@ const failureDescription = positional.join(" ").trim();
 if (!failureDescription) {
   console.error("✗ Provide a failure description as an argument.");
   console.error('  e.g. node cli/eventdash-debug.mjs "Checkout 500s on Amex cards after deploy"');
+  process.exit(1);
+}
+
+if (!opts.token) {
+  console.error("✗ Missing auth token. Set BRANCH_DEBUG_TOKEN env var or pass --token <token>.");
   process.exit(1);
 }
 
@@ -89,7 +101,10 @@ console.log(`▸ Sending ${(diff.length / 1024).toFixed(1)} KB diff to ${opts.en
 
 const res = await fetch(opts.endpoint, {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${opts.token}`,
+  },
   body: JSON.stringify({ diff, failureDescription, repoRoot, editor: opts.editor }),
 });
 

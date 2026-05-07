@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { analyzeDiff } from "@/server/branch-debug.functions";
 
 // This endpoint exists for the VS Code / CLI helper. It is no longer open to
@@ -21,11 +22,12 @@ function corsHeaders(origin: string | null): Record<string, string> {
   };
 }
 
-function timingSafeEqualStr(a: string, b: string) {
-  if (a.length !== b.length) return false;
-  let r = 0;
-  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return r === 0;
+function timingSafeEqualStr(a: string, b: string): boolean {
+  // Hash both sides to a fixed-length digest so the comparison runs in
+  // constant time regardless of input length (no length-leak side channel).
+  const ha = createHash("sha256").update(a).digest();
+  const hb = createHash("sha256").update(b).digest();
+  return timingSafeEqual(ha, hb);
 }
 
 export const Route = createFileRoute("/api/public/branch-debug")({
@@ -47,14 +49,24 @@ export const Route = createFileRoute("/api/public/branch-debug")({
           return Response.json({ error: "Unauthorized" }, { status: 401, headers });
         }
 
-        // 2) Body size cap (defense in depth — schema also caps diff length)
-        const len = Number(request.headers.get("content-length") ?? "0");
-        if (len > MAX_BODY_BYTES) {
+        // 2) Body size cap — enforce on the actual bytes received, not on
+        // the (spoofable / omittable) Content-Length header.
+        const advertised = Number(request.headers.get("content-length") ?? "0");
+        if (advertised > MAX_BODY_BYTES) {
           return Response.json({ error: "Payload too large" }, { status: 413, headers });
         }
 
         try {
-          const body = await request.json().catch(() => ({}));
+          const buf = await request.arrayBuffer();
+          if (buf.byteLength > MAX_BODY_BYTES) {
+            return Response.json({ error: "Payload too large" }, { status: 413, headers });
+          }
+          let body: any = {};
+          try {
+            body = JSON.parse(new TextDecoder().decode(buf));
+          } catch {
+            return Response.json({ error: "Invalid JSON" }, { status: 400, headers });
+          }
           const diff = typeof body.diff === "string" ? body.diff : "";
           const failureDescription = typeof body.failureDescription === "string" ? body.failureDescription : "";
           const repoRoot = typeof body.repoRoot === "string" ? body.repoRoot : null;

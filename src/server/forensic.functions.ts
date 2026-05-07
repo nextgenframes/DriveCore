@@ -224,6 +224,12 @@ export const fetchVehicleCode = createServerFn({ method: "POST" })
             source = "github";
             warnings.push(`No manifest — fell back to ${branch} HEAD on GitHub`);
           }
+        } else {
+          const body = await r.text().catch(() => "");
+          warnings.push(
+            `GitHub HEAD lookup returned ${r.status} for ${data.githubRepo}@${branch}` +
+              (body ? `: ${body.slice(0, 160)}` : ""),
+          );
         }
       } catch (e) {
         warnings.push(`GitHub HEAD lookup failed: ${(e as Error).message}`);
@@ -231,8 +237,10 @@ export const fetchVehicleCode = createServerFn({ method: "POST" })
     }
 
     if (!commit) {
+      const detail = warnings.length ? `\n\nDetails:\n• ${warnings.join("\n• ")}` : "";
       throw new Error(
-        "Could not determine deployed commit. Provide a manifest URL, a GitHub repo, or paste the commit hash manually. (Direct SSH-into-vehicle is not available from this serverless runtime — use a manifest endpoint or git mirror.)",
+        "Could not determine deployed commit. Provide a manifest URL, a valid GitHub repo (org/repo) with a reachable branch, or paste the commit hash manually." +
+          detail,
       );
     }
 

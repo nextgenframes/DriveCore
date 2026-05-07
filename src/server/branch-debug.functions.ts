@@ -403,11 +403,11 @@ export async function analyzeSnippet(
 
   const userContent = `LANGUAGE: ${language || "auto-detect"}\n\nFAILURE DESCRIPTION (sanitized):\n${sanitize(failureDescription).sanitized}\n\nCODE SNIPPET (line-numbered, sanitized):\n${numbered.slice(0, 40_000)}`;
 
-  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const resp = await fetch(aiChatCompletionsUrl(), {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    headers: aiAuthHeaders(),
     body: JSON.stringify({
-      model: "google/gemini-2.5-pro",
+      model: resolveModel("google/gemini-2.5-pro"),
       messages: [
         { role: "system", content: SNIPPET_SYSTEM },
         { role: "user", content: userContent },

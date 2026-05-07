@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// AutoPulse Branch Debug CLI
+// DriveCore Branch Debug CLI
 //
 // Usage (from your repo root, in the VS Code terminal):
 //   node ./cli/eventdash-debug.mjs "API throws 500 on /checkout for Amex cards"

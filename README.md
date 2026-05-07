@@ -1,8 +1,8 @@
-# AutoPulse
+# DriveCore
 
 An AI-powered incident response, forensic analysis, and branch debugging platform.
 
-AutoPulse helps engineering and security teams:
+DriveCore helps engineering and security teams:
 
 - **Triage incidents** with an AI agent pipeline (intake → enrichment → analysis → response).
 - **Run forensic analysis** on suspicious URLs and uploaded files with built-in SSRF protection.

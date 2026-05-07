@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-Get AutoPulse running in **under 5 minutes**.
+Get DriveCore running in **under 5 minutes**.
 
 ---
 

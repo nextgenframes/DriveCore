@@ -60,7 +60,7 @@ function AuthPage() {
             <div className="h-10 w-10 rounded-lg bg-primary text-primary-foreground flex items-center justify-center">
               <Radar className="h-5 w-5" />
             </div>
-            <span className="text-xl font-bold tracking-tight">AutoPulse</span>
+            <span className="text-xl font-bold tracking-tight">DriveCore</span>
           </div>
         </div>
         <div className="relative space-y-6 max-w-md">
@@ -69,7 +69,7 @@ function AuthPage() {
             Multi-agent safety analysis for autonomous fleets.
           </h1>
           <p className="text-muted-foreground text-lg">
-            Upload incident reports, telemetry transcripts, or sensor logs. AutoPulse extracts events, identifies root causes, flags compliance risks, and drafts coaching plans — in seconds.
+            Upload incident reports, telemetry transcripts, or sensor logs. DriveCore extracts events, identifies root causes, flags compliance risks, and drafts coaching plans — in seconds.
           </p>
           <div className="flex gap-2 pt-4 font-mono text-xs text-muted-foreground">
             <span className="px-2 py-1 rounded bg-surface border border-border">EVENT</span>

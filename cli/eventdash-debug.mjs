@@ -101,7 +101,10 @@ console.log(`▸ Sending ${(diff.length / 1024).toFixed(1)} KB diff to ${opts.en
 
 const res = await fetch(opts.endpoint, {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${opts.token}`,
+  },
   body: JSON.stringify({ diff, failureDescription, repoRoot, editor: opts.editor }),
 });
 

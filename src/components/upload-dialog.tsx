@@ -93,7 +93,7 @@ export function UploadDialog({ onCreated }: { onCreated?: (id: string) => void }
         <DialogHeader>
           <DialogTitle>Submit incident for analysis</DialogTitle>
           <DialogDescription>
-            Paste a report/transcript or upload sensor logs, PDF reports, or video evidence. EventDash will route it through Event, Safety, Risk, and Documentation agents.
+            Paste a report/transcript or upload sensor logs, PDF reports, or video evidence. AutoPulse will route it through Event, Safety, Risk, and Documentation agents.
           </DialogDescription>
         </DialogHeader>
 

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { aiAuthHeaders, aiChatCompletionsUrl, getAIConfig, resolveModel } from "./ai-config";
 import { z } from "zod";
 
 const InputSchema = z.object({

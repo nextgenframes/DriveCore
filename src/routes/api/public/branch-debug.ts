@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { analyzeDiff } from "@/server/branch-debug.functions";
 
 // This endpoint exists for the VS Code / CLI helper. It is no longer open to
@@ -21,11 +22,12 @@ function corsHeaders(origin: string | null): Record<string, string> {
   };
 }
 
-function timingSafeEqualStr(a: string, b: string) {
-  if (a.length !== b.length) return false;
-  let r = 0;
-  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return r === 0;
+function timingSafeEqualStr(a: string, b: string): boolean {
+  // Hash both sides to a fixed-length digest so the comparison runs in
+  // constant time regardless of input length (no length-leak side channel).
+  const ha = createHash("sha256").update(a).digest();
+  const hb = createHash("sha256").update(b).digest();
+  return timingSafeEqual(ha, hb);
 }
 
 export const Route = createFileRoute("/api/public/branch-debug")({

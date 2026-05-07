@@ -472,8 +472,7 @@ export const runForensicStage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => StageInput.parse(d))
   .handler(async ({ data }): Promise<{ result: StageResult; sanitizationStats: { identifiersTokenized: number; commentsStripped: number; secretsBlocked: number } }> => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
+    getAIConfig();
 
     const codeS = sanitize(data.code);
     const failureS = sanitize(data.failureDescription);

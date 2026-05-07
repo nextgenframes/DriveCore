@@ -396,8 +396,7 @@ export async function analyzeSnippet(
   failureDescription: string,
   language?: string,
 ): Promise<DebugResult> {
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
+  getAIConfig();
 
   const { sanitized, reverseMap, stats, audit } = sanitize(snippet);
   const numbered = sanitized.split("\n").map((l, i) => `${String(i + 1).padStart(4, " ")} | ${l}`).join("\n");

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { aiAuthHeaders, aiChatCompletionsUrl, getAIConfig, resolveModel } from "./ai-config";
 import { z } from "zod";
 
 const InputSchema = z.object({
@@ -66,8 +67,7 @@ export const analyzeIncident = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => InputSchema.parse(d))
   .handler(async ({ data, context }) => {
     const supabase = supabaseAdmin;
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
+    getAIConfig(); // validates env config early
 
     // Ownership-scoped fetch — RLS-equivalent guard even with admin client
     const { data: incident, error: fetchErr } = await supabase
@@ -83,11 +83,11 @@ export const analyzeIncident = createServerFn({ method: "POST" })
     try {
       const userContent = `INCIDENT TITLE: ${incident.title}\nSOURCE TYPE: ${incident.source_type}\nFILE: ${incident.file_name ?? "(none)"}\n\n--- RAW INPUT ---\n${incident.raw_text ?? "(no text content provided)"}`;
 
-      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const resp = await fetch(aiChatCompletionsUrl(), {
         method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        headers: aiAuthHeaders(),
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: resolveModel("google/gemini-2.5-flash"),
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
             { role: "user", content: userContent },

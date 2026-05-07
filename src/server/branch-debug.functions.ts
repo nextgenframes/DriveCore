@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { aiAuthHeaders, aiChatCompletionsUrl, getAIConfig, resolveModel } from "./ai-config";
 import { z } from "zod";
 
 const InputSchema = z.object({
@@ -244,8 +245,7 @@ For each hunk that plausibly caused the failure, return a suspect entry with:
 Rank by likelihood. Be conservative; if a hunk is unrelated, do not include it. Always call submit_root_cause_analysis.`;
 
 export async function analyzeDiff(diff: string, failureDescription: string): Promise<DebugResult> {
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
+  getAIConfig();
 
   const { sanitized, reverseMap, stats, audit } = sanitize(diff);
   const hunks = parseDiff(diff);
@@ -263,11 +263,11 @@ export async function analyzeDiff(diff: string, failureDescription: string): Pro
 
   const userContent = `FAILURE DESCRIPTION (sanitized):\n${sanitize(failureDescription).sanitized}\n\nHUNKS:\n${hunkList}\n\nFULL SANITIZED DIFF:\n${sanitized.slice(0, 40_000)}`;
 
-  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const resp = await fetch(aiChatCompletionsUrl(), {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    headers: aiAuthHeaders(),
     body: JSON.stringify({
-      model: "google/gemini-2.5-pro",
+      model: resolveModel("google/gemini-2.5-pro"),
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userContent },
@@ -396,19 +396,18 @@ export async function analyzeSnippet(
   failureDescription: string,
   language?: string,
 ): Promise<DebugResult> {
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
+  getAIConfig();
 
   const { sanitized, reverseMap, stats, audit } = sanitize(snippet);
   const numbered = sanitized.split("\n").map((l, i) => `${String(i + 1).padStart(4, " ")} | ${l}`).join("\n");
 
   const userContent = `LANGUAGE: ${language || "auto-detect"}\n\nFAILURE DESCRIPTION (sanitized):\n${sanitize(failureDescription).sanitized}\n\nCODE SNIPPET (line-numbered, sanitized):\n${numbered.slice(0, 40_000)}`;
 
-  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const resp = await fetch(aiChatCompletionsUrl(), {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    headers: aiAuthHeaders(),
     body: JSON.stringify({
-      model: "google/gemini-2.5-pro",
+      model: resolveModel("google/gemini-2.5-pro"),
       messages: [
         { role: "system", content: SNIPPET_SYSTEM },
         { role: "user", content: userContent },

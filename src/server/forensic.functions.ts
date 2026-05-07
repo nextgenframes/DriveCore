@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { sanitize, restore } from "./branch-debug.functions";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { aiAuthHeaders, aiChatCompletionsUrl, getAIConfig, resolveModel } from "./ai-config";
 
 // ───────────────────────── SSRF Guard ─────────────────────────
 // Reject loopback, private (RFC1918), link-local, and cloud metadata addresses
@@ -471,8 +472,7 @@ export const runForensicStage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => StageInput.parse(d))
   .handler(async ({ data }): Promise<{ result: StageResult; sanitizationStats: { identifiersTokenized: number; commentsStripped: number; secretsBlocked: number } }> => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
+    getAIConfig();
 
     const codeS = sanitize(data.code);
     const failureS = sanitize(data.failureDescription);
@@ -497,11 +497,11 @@ export const runForensicStage = createServerFn({ method: "POST" })
     if (logsS) userParts.push(`\n\nSYSTEM LOGS (anonymized):\n${logsS.sanitized.slice(0, 40_000)}`);
     if (bagS) userParts.push(`\n\nROS BAG / SENSOR DATA (anonymized):\n${bagS.sanitized.slice(0, 40_000)}`);
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const resp = await fetch(aiChatCompletionsUrl(), {
       method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      headers: aiAuthHeaders(),
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: resolveModel("google/gemini-2.5-flash"),
         messages: [
           { role: "system", content: STAGE_PROMPTS[data.stage] },
           { role: "user", content: userParts.join("") },

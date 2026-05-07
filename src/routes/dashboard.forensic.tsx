@@ -23,6 +23,18 @@ import {
 
 export const Route = createFileRoute("/dashboard/forensic")({
   component: ForensicPage,
+  errorComponent: ({ error, reset }) => (
+    <div className="p-8 max-w-2xl mx-auto space-y-4">
+      <h2 className="text-lg font-semibold text-destructive">Forensic request failed</h2>
+      <p className="text-sm text-muted-foreground whitespace-pre-wrap">{error.message}</p>
+      <button
+        onClick={() => reset()}
+        className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium"
+      >
+        Try again
+      </button>
+    </div>
+  ),
 });
 
 type Stage = 1 | 2 | 3;

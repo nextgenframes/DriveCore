@@ -497,11 +497,11 @@ export const runForensicStage = createServerFn({ method: "POST" })
     if (logsS) userParts.push(`\n\nSYSTEM LOGS (anonymized):\n${logsS.sanitized.slice(0, 40_000)}`);
     if (bagS) userParts.push(`\n\nROS BAG / SENSOR DATA (anonymized):\n${bagS.sanitized.slice(0, 40_000)}`);
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const resp = await fetch(aiChatCompletionsUrl(), {
       method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      headers: aiAuthHeaders(),
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: resolveModel("google/gemini-2.5-flash"),
         messages: [
           { role: "system", content: STAGE_PROMPTS[data.stage] },
           { role: "user", content: userParts.join("") },

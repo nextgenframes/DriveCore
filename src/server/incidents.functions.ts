@@ -67,8 +67,7 @@ export const analyzeIncident = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => InputSchema.parse(d))
   .handler(async ({ data, context }) => {
     const supabase = supabaseAdmin;
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
+    getAIConfig(); // validates env config early
 
     // Ownership-scoped fetch — RLS-equivalent guard even with admin client
     const { data: incident, error: fetchErr } = await supabase

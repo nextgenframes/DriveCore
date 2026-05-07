@@ -245,8 +245,7 @@ For each hunk that plausibly caused the failure, return a suspect entry with:
 Rank by likelihood. Be conservative; if a hunk is unrelated, do not include it. Always call submit_root_cause_analysis.`;
 
 export async function analyzeDiff(diff: string, failureDescription: string): Promise<DebugResult> {
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
+  getAIConfig();
 
   const { sanitized, reverseMap, stats, audit } = sanitize(diff);
   const hunks = parseDiff(diff);

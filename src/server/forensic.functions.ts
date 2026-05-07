@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { sanitize, restore } from "./branch-debug.functions";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { aiAuthHeaders, aiChatCompletionsUrl, getAIConfig, resolveModel } from "./ai-config";
 
 // ───────────────────────── SSRF Guard ─────────────────────────
 // Reject loopback, private (RFC1918), link-local, and cloud metadata addresses

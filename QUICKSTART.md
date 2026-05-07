@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-Get Guardian Owl running in **under 5 minutes**.
+Get AutoPulse running in **under 5 minutes**.
 
 ---
 

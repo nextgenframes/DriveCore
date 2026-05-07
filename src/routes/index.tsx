@@ -11,7 +11,7 @@ function Landing() {
       <header className="relative max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shadow-[var(--shadow-glow)]"><Radar className="h-5 w-5"/></div>
-          <span className="font-bold tracking-tight">AutoPulse</span>
+          <span className="font-bold tracking-tight">DriveCore</span>
         </div>
         <Link to="/auth" className="text-sm font-medium text-muted-foreground hover:text-foreground">Sign in →</Link>
       </header>
@@ -24,7 +24,7 @@ function Landing() {
           Turn raw incident logs into <span className="text-primary">actionable safety intelligence</span>.
         </h1>
         <p className="mt-6 text-lg text-muted-foreground max-w-2xl mx-auto">
-          AutoPulse routes every autonomous vehicle event, near miss, and sensor log through four specialized AI agents — surfacing root causes, compliance concerns, and operator coaching plans in seconds.
+          DriveCore routes every autonomous vehicle event, near miss, and sensor log through four specialized AI agents — surfacing root causes, compliance concerns, and operator coaching plans in seconds.
         </p>
         <div className="mt-10 flex items-center justify-center gap-3">
           <Link to="/auth" className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 shadow-[var(--shadow-glow)]">

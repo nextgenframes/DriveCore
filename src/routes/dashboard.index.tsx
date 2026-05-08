@@ -45,10 +45,17 @@ function IncidentsPage() {
 
   const selected = incidents.find((i) => i.id === selectedId);
 
-  const rerun = async (id: string) => {
+  const rerun = useCallback(async (id: string) => {
     try { await analyze({ data: { incidentId: id } }); toast.success("Analysis updated"); }
     catch (e: any) { toast.error(e.message); }
-  };
+  }, [analyze]);
+
+  // Auto-trigger analysis when a pending incident is selected
+  useEffect(() => {
+    if (selected && selected.status === "pending") {
+      rerun(selected.id);
+    }
+  }, [selected?.id, selected?.status, rerun]);
 
   const remove = async (id: string) => {
     await supabase.from("incidents").delete().eq("id", id);

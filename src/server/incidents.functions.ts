@@ -109,7 +109,7 @@ export const analyzeIncident = createServerFn({ method: "POST" })
         tool_choice: { type: "function", function: { name: "submit_analysis" } },
       });
 
-      const resp = await fetchAIWithFallback(requestBody, "google/gemini-2.5-flash", "analyzeIncident");
+      const resp = await fetchAIWithFallback(requestBody, "google/gemini-2.5-flash", "analyzeIncident", context.userId);
 
       if (!resp.ok) {
         const text = await resp.text();

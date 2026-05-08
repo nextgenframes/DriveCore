@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { Radar, AlertTriangle, FileBarChart, GraduationCap, Scale, LogOut, User as UserIcon, GitBranch, Car } from "lucide-react";
+import { Radar, AlertTriangle, FileBarChart, GraduationCap, Scale, LogOut, User as UserIcon, GitBranch, Car, Activity } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import type { User } from "@supabase/supabase-js";
@@ -11,6 +11,7 @@ const nav = [
   { to: "/dashboard/reports", label: "Reports Bot", icon: FileBarChart },
   { to: "/dashboard/coaching", label: "Coaching Bot", icon: GraduationCap },
   { to: "/dashboard/compliance", label: "Compliance Bot", icon: Scale },
+  { to: "/dashboard/ai-logs", label: "AI Call Log", icon: Activity },
 ] as const;
 
 export function Sidebar({ user }: { user: User | null }) {

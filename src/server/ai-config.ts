@@ -133,7 +133,9 @@ export async function fetchAIWithFallback(
           headers,
           body: JSON.stringify({
             ...JSON.parse(body),
-            model,
+            // On the Lovable gateway, ignore AI_MODEL override (e.g. "qwen3")
+            // because the gateway only accepts its own allow-list.
+            model: baseUrl === DEFAULT_BASE_URL ? requestedModel : model,
           }),
         });
 

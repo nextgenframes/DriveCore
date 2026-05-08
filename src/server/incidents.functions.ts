@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { aiAuthHeaders, aiChatCompletionsUrl, getAIConfig, resolveModel } from "./ai-config";
+import { fetchAIWithFallback, getAIConfig } from "./ai-config";
 import { AV_KNOWLEDGE_BASE } from "./av-knowledge";
 import { z } from "zod";
 
@@ -99,7 +99,6 @@ export const analyzeIncident = createServerFn({ method: "POST" })
       const userContent = `INCIDENT TITLE: ${incident.title}\nSOURCE TYPE: ${incident.source_type}\nFILE: ${incident.file_name ?? "(none)"}\n\n--- RAW INPUT ---\n${incident.raw_text ?? "(no text content provided)"}`;
 
       const requestBody = JSON.stringify({
-        model: resolveModel("google/gemini-2.5-flash"),
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "system", content: AV_KNOWLEDGE_BASE },
@@ -110,29 +109,7 @@ export const analyzeIncident = createServerFn({ method: "POST" })
         tool_choice: { type: "function", function: { name: "submit_analysis" } },
       });
 
-      // Retry transient network failures (SSR worker occasionally drops the
-      // first outbound fetch). Up to 3 attempts with exponential backoff.
-      let resp: Response | undefined;
-      let lastErr: unknown;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          resp = await fetch(aiChatCompletionsUrl(), {
-            method: "POST",
-            headers: aiAuthHeaders(),
-            body: requestBody,
-          });
-          break;
-        } catch (e: any) {
-          lastErr = e;
-          console.error(`[analyzeIncident] fetch attempt ${attempt + 1} failed:`, e?.message, e?.cause?.message, e?.cause?.code);
-          await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
-        }
-      }
-      if (!resp) {
-        const e = lastErr as any;
-        const detail = e?.cause?.message || e?.cause?.code || e?.message || String(lastErr);
-        throw new Error(`Could not reach AI gateway: ${detail}`);
-      }
+      const resp = await fetchAIWithFallback(requestBody, "google/gemini-2.5-flash", "analyzeIncident");
 
       if (!resp.ok) {
         const text = await resp.text();

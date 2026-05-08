@@ -91,7 +91,7 @@ function ForensicPage() {
       }});
       setTestResults(r.results);
       toast.success("Connection probed");
-    } catch (e: any) { toast.error(e.message ?? "Connection test failed"); }
+    } catch (e: any) { toast.error(await getErrorMessage(e, "Connection test failed")); }
     finally { setTesting(false); }
   };
 
@@ -114,7 +114,7 @@ function ForensicPage() {
       }});
       setFetched(r);
       toast.success(`Fetched ${r.files.length} file(s) at ${r.manifest.commitHash.slice(0, 8)}`);
-    } catch (e: any) { toast.error(e.message ?? "Fetch failed"); }
+    } catch (e: any) { toast.error(await getErrorMessage(e, "Fetch failed")); }
     finally { setConnecting(false); }
   };
 
@@ -139,7 +139,7 @@ function ForensicPage() {
       setSanStats(r.sanitizationStats);
       if (stage < 3) setActiveStage((stage + 1) as Stage);
       toast.success(`Stage ${stage} complete`);
-    } catch (e: any) { toast.error(e.message ?? `Stage ${stage} failed`); }
+    } catch (e: any) { toast.error(await getErrorMessage(e, `Stage ${stage} failed`)); }
     finally { setStageLoading(null); }
   };
 
@@ -349,6 +349,15 @@ function ForensicPage() {
       </div>
     </>
   );
+}
+
+async function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Response) {
+    return `${error.status} ${await error.text().catch(() => error.statusText || fallback)}`;
+  }
+
+  const message = (error as { message?: string } | null)?.message;
+  return message && message !== "[object Response]" ? message : fallback;
 }
 
 function Stage1View({ r }: { r: Stage1Result }) {

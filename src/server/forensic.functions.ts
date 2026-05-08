@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { sanitize, restore } from "./branch-debug.functions";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { aiAuthHeaders, aiChatCompletionsUrl, getAIConfig, resolveModel } from "./ai-config";
+import { fetchAIWithFallback, getAIConfig } from "./ai-config";
 
 // ───────────────────────── SSRF Guard ─────────────────────────
 // Reject loopback, private (RFC1918), link-local, and cloud metadata addresses
@@ -497,19 +497,14 @@ export const runForensicStage = createServerFn({ method: "POST" })
     if (logsS) userParts.push(`\n\nSYSTEM LOGS (anonymized):\n${logsS.sanitized.slice(0, 40_000)}`);
     if (bagS) userParts.push(`\n\nROS BAG / SENSOR DATA (anonymized):\n${bagS.sanitized.slice(0, 40_000)}`);
 
-    const resp = await fetch(aiChatCompletionsUrl(), {
-      method: "POST",
-      headers: aiAuthHeaders(),
-      body: JSON.stringify({
-        model: resolveModel("google/gemini-2.5-flash"),
-        messages: [
-          { role: "system", content: STAGE_PROMPTS[data.stage] },
-          { role: "user", content: userParts.join("") },
-        ],
-        tools,
-        tool_choice: { type: "function", function: { name: toolName } },
-      }),
-    });
+    const resp = await fetchAIWithFallback(JSON.stringify({
+      messages: [
+        { role: "system", content: STAGE_PROMPTS[data.stage] },
+        { role: "user", content: userParts.join("") },
+      ],
+      tools,
+      tool_choice: { type: "function", function: { name: toolName } },
+    }), "google/gemini-2.5-flash", `forensicStage${data.stage}`);
 
     if (!resp.ok) {
       const text = await resp.text();

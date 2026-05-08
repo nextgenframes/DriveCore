@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { aiAuthHeaders, aiChatCompletionsUrl, getAIConfig, resolveModel } from "./ai-config";
+import { AV_KNOWLEDGE_BASE } from "./av-knowledge";
 import { z } from "zod";
 
 const InputSchema = z.object({
@@ -90,6 +91,7 @@ export const analyzeIncident = createServerFn({ method: "POST" })
           model: resolveModel("google/gemini-2.5-flash"),
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
+            { role: "system", content: AV_KNOWLEDGE_BASE },
             { role: "user", content: userContent },
           ],
           tools: [analysisTool],

@@ -82,6 +82,20 @@ export const analyzeIncident = createServerFn({ method: "POST" })
     await supabase.from("incidents").update({ status: "analyzing", error: null }).eq("id", data.incidentId);
 
     try {
+      // Pull the user's recent self-improvement learnings (Self-Improving Agent skill)
+      const { data: learnings } = await supabase
+        .from("qwen_learnings")
+        .select("category, content, context")
+        .eq("user_id", context.userId)
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      const learningsBlock = learnings && learnings.length
+        ? `PRIOR LEARNINGS (operator corrections, insights, past errors — apply these going forward):\n${learnings
+            .map((l: any, i: number) => `${i + 1}. [${l.category}] ${l.content}${l.context ? ` (context: ${l.context})` : ""}`)
+            .join("\n")}`
+        : "PRIOR LEARNINGS: (none yet)";
+
       const userContent = `INCIDENT TITLE: ${incident.title}\nSOURCE TYPE: ${incident.source_type}\nFILE: ${incident.file_name ?? "(none)"}\n\n--- RAW INPUT ---\n${incident.raw_text ?? "(no text content provided)"}`;
 
       const requestBody = JSON.stringify({
@@ -89,6 +103,7 @@ export const analyzeIncident = createServerFn({ method: "POST" })
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "system", content: AV_KNOWLEDGE_BASE },
+          { role: "system", content: learningsBlock },
           { role: "user", content: userContent },
         ],
         tools: [analysisTool],

@@ -80,6 +80,44 @@ export type Database = {
         }
         Relationships: []
       }
+      qwen_learnings: {
+        Row: {
+          category: Database["public"]["Enums"]["learning_category"]
+          content: string
+          context: string | null
+          created_at: string
+          id: string
+          incident_id: string | null
+          user_id: string
+        }
+        Insert: {
+          category?: Database["public"]["Enums"]["learning_category"]
+          content: string
+          context?: string | null
+          created_at?: string
+          id?: string
+          incident_id?: string | null
+          user_id: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["learning_category"]
+          content?: string
+          context?: string | null
+          created_at?: string
+          id?: string
+          incident_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qwen_learnings_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "incidents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -115,6 +153,7 @@ export type Database = {
       app_role: "admin" | "operator"
       incident_severity: "low" | "medium" | "high" | "critical" | "unknown"
       incident_status: "pending" | "analyzing" | "complete" | "failed"
+      learning_category: "correction" | "insight" | "error" | "best_practice"
       source_type: "text" | "file" | "pdf" | "video"
     }
     CompositeTypes: {
@@ -246,6 +285,7 @@ export const Constants = {
       app_role: ["admin", "operator"],
       incident_severity: ["low", "medium", "high", "critical", "unknown"],
       incident_status: ["pending", "analyzing", "complete", "failed"],
+      learning_category: ["correction", "insight", "error", "best_practice"],
       source_type: ["text", "file", "pdf", "video"],
     },
   },

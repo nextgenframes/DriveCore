@@ -244,7 +244,7 @@ For each hunk that plausibly caused the failure, return a suspect entry with:
 
 Rank by likelihood. Be conservative; if a hunk is unrelated, do not include it. Always call submit_root_cause_analysis.`;
 
-export async function analyzeDiff(diff: string, failureDescription: string): Promise<DebugResult> {
+export async function analyzeDiff(diff: string, failureDescription: string, userId?: string | null): Promise<DebugResult> {
   getAIConfig();
 
   const { sanitized, reverseMap, stats, audit } = sanitize(diff);
@@ -270,7 +270,7 @@ export async function analyzeDiff(diff: string, failureDescription: string): Pro
     ],
     tools: [analysisTool],
     tool_choice: { type: "function", function: { name: "submit_root_cause_analysis" } },
-  }), "google/gemini-2.5-pro", "debugBranch");
+  }), "google/gemini-2.5-pro", "debugBranch", userId);
 
   if (!resp.ok) {
     const text = await resp.text();
@@ -320,8 +320,8 @@ export async function analyzeDiff(diff: string, failureDescription: string): Pro
 export const debugBranch = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => InputSchema.parse(d))
-  .handler(async ({ data }): Promise<DebugResult> => {
-    return analyzeDiff(data.diff, data.failureDescription);
+  .handler(async ({ data, context }): Promise<DebugResult> => {
+    return analyzeDiff(data.diff, data.failureDescription, context.userId);
   });
 
 // ───────────────────────── Snippet mode (no diff) ─────────────────────────
@@ -390,6 +390,7 @@ export async function analyzeSnippet(
   snippet: string,
   failureDescription: string,
   language?: string,
+  userId?: string | null,
 ): Promise<DebugResult> {
   getAIConfig();
 
@@ -405,7 +406,7 @@ export async function analyzeSnippet(
     ],
     tools: [snippetTool],
     tool_choice: { type: "function", function: { name: "submit_snippet_analysis" } },
-  }), "google/gemini-2.5-pro", "debugSnippet");
+  }), "google/gemini-2.5-pro", "debugSnippet", userId);
 
   if (!resp.ok) {
     const text = await resp.text();
@@ -450,7 +451,7 @@ export async function analyzeSnippet(
 export const debugSnippet = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => SnippetInputSchema.parse(d))
-  .handler(async ({ data }): Promise<DebugResult> => {
-    return analyzeSnippet(data.snippet, data.failureDescription, data.language);
+  .handler(async ({ data, context }): Promise<DebugResult> => {
+    return analyzeSnippet(data.snippet, data.failureDescription, data.language, context.userId);
   });
 

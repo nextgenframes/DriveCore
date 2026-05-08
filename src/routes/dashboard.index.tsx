@@ -127,14 +127,6 @@ function IncidentsPage() {
           {selected ? <IncidentDetail incident={selected} onRerun={() => rerun(selected.id)} onDelete={() => remove(selected.id)} /> : <DetailEmpty />}
         </ScrollArea>
       </div>
-
-      <QwenBot
-        status={(selected?.status as any) ?? "idle"}
-        summary={selected?.analysis?.summary}
-        severity={selected?.severity}
-        error={selected?.error}
-        incidentId={selected?.id ?? null}
-      />
     </>
   );
 }

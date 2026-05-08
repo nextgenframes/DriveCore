@@ -190,6 +190,8 @@ function IncidentDetail({ incident, onRerun, onDelete }: { incident: Incident; o
       </div>
 
       <StatusTimeline status={incident.status} />
+
+      {incident.status === "pending" && (
         <div className="rounded-xl border border-primary/40 bg-primary/5 p-6 flex items-center justify-between gap-4">
           <div>
             <p className="font-medium text-sm">Awaiting analysis</p>

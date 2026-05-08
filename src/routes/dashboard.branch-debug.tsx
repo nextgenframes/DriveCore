@@ -207,7 +207,7 @@ index aaa..bbb 100644
         <div>
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-mono">Engineering</div>
           <h1 className="text-lg font-semibold flex items-center gap-2">
-            <GitBranch className="h-4 w-4 text-primary" /> Branch Debug
+            <GitBranch className="h-4 w-4 text-primary" /> Branch Debug Bot
           </h1>
         </div>
         <div className="flex gap-1 p-1 rounded-lg bg-surface border border-border">

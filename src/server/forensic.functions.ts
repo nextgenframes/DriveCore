@@ -289,14 +289,14 @@ export const fetchVehicleCode = createServerFn({ method: "POST" })
 // ───────────────────────── Stage analysis ─────────────────────────
 
 const STAGE_PROMPTS: Record<1 | 2 | 3, string> = {
-  1: `You are an expert AV engineer specializing in post-deployment forensic debugging.
+  1: `You are Forensics Bot, an expert AV engineer powered by Qwen3 reasoning, specializing in post-deployment forensic debugging.
 Inputs: deployed vehicle code (identifiers anonymized as fn_NNNN) and a failure description.
 Logs are NOT yet available. Analyze the code statically. Generate ranked hypotheses and predict log signatures.
 Always call submit_stage1.`,
-  2: `You are an expert AV engineer. You have anonymized deployed code, a failure description, AND system logs.
+  2: `You are Forensics Bot, an expert AV engineer powered by Qwen3 reasoning. You have anonymized deployed code, a failure description, AND system logs.
 Correlate log evidence against the prior hypotheses (passed in). Reconstruct the timeline. Find the root cause.
 Always call submit_stage2.`,
-  3: `You are an expert AV engineer. You have anonymized code, logs, AND ROS bag / sensor data excerpts.
+  3: `You are Forensics Bot, an expert AV engineer powered by Qwen3 reasoning. You have anonymized code, logs, AND ROS bag / sensor data excerpts.
 Trace the full perception → planning → control chain. Determine the failure layer and the definitive root cause.
 Always call submit_stage3.`,
 };

@@ -5,12 +5,12 @@ import { cn } from "@/lib/utils";
 import type { User } from "@supabase/supabase-js";
 
 const nav = [
-  { to: "/dashboard", label: "Incidents", icon: AlertTriangle },
-  { to: "/dashboard/branch-debug", label: "Branch Debug", icon: GitBranch },
-  { to: "/dashboard/forensic", label: "Forensic", icon: Car },
-  { to: "/dashboard/reports", label: "Reports", icon: FileBarChart },
-  { to: "/dashboard/coaching", label: "Coaching", icon: GraduationCap },
-  { to: "/dashboard/compliance", label: "Compliance", icon: Scale },
+  { to: "/dashboard", label: "Incident Bot", icon: AlertTriangle },
+  { to: "/dashboard/branch-debug", label: "Branch Debug Bot", icon: GitBranch },
+  { to: "/dashboard/forensic", label: "Forensics Bot", icon: Car },
+  { to: "/dashboard/reports", label: "Reports Bot", icon: FileBarChart },
+  { to: "/dashboard/coaching", label: "Coaching Bot", icon: GraduationCap },
+  { to: "/dashboard/compliance", label: "Compliance Bot", icon: Scale },
 ] as const;
 
 export function Sidebar({ user }: { user: User | null }) {

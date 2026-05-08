@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { UploadDialog } from "@/components/upload-dialog";
 import { AgentPipeline } from "@/components/agent-pipeline";
-import { QwenBot } from "@/components/qwen-bot";
+
 import { StatusTimeline } from "@/components/status-timeline";
 import { SeverityBadge } from "@/components/severity-badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -77,7 +77,7 @@ function IncidentsPage() {
       <header className="h-16 border-b border-border flex items-center justify-between px-8 bg-surface/40 backdrop-blur">
         <div>
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-mono">Operations</div>
-          <h1 className="text-lg font-semibold">Incident Analysis</h1>
+          <h1 className="text-lg font-semibold">Incident Bot</h1>
         </div>
         <UploadDialog onCreated={(id) => setSelectedId(id)} />
       </header>
@@ -127,14 +127,6 @@ function IncidentsPage() {
           {selected ? <IncidentDetail incident={selected} onRerun={() => rerun(selected.id)} onDelete={() => remove(selected.id)} /> : <DetailEmpty />}
         </ScrollArea>
       </div>
-
-      <QwenBot
-        status={(selected?.status as any) ?? "idle"}
-        summary={selected?.analysis?.summary}
-        severity={selected?.severity}
-        error={selected?.error}
-        incidentId={selected?.id ?? null}
-      />
     </>
   );
 }

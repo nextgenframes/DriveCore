@@ -151,7 +151,7 @@ function ForensicPage() {
         <div>
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-mono">Engineering · Post-Deployment</div>
           <h1 className="text-lg font-semibold flex items-center gap-2">
-            <Car className="h-4 w-4 text-primary" /> Forensic Debrief
+            <Car className="h-4 w-4 text-primary" /> Forensics Bot
           </h1>
         </div>
         {fetched && (

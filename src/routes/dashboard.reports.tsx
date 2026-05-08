@@ -24,7 +24,7 @@ function ReportsPage() {
     <div className="p-8 space-y-6">
       <div>
         <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-mono">Documentation</div>
-        <h1 className="text-2xl font-bold">Safety Reports</h1>
+        <h1 className="text-2xl font-bold">Reports Bot</h1>
       </div>
       <div className="space-y-2">
         {items.map((i) => (

@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { aiAuthHeaders, aiChatCompletionsUrl, getAIConfig, resolveModel } from "./ai-config";
+import { fetchAIWithFallback, getAIConfig } from "./ai-config";
 import { z } from "zod";
 
 const InputSchema = z.object({
@@ -263,19 +263,14 @@ export async function analyzeDiff(diff: string, failureDescription: string): Pro
 
   const userContent = `FAILURE DESCRIPTION (sanitized):\n${sanitize(failureDescription).sanitized}\n\nHUNKS:\n${hunkList}\n\nFULL SANITIZED DIFF:\n${sanitized.slice(0, 40_000)}`;
 
-  const resp = await fetch(aiChatCompletionsUrl(), {
-    method: "POST",
-    headers: aiAuthHeaders(),
-    body: JSON.stringify({
-      model: resolveModel("google/gemini-2.5-pro"),
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userContent },
-      ],
-      tools: [analysisTool],
-      tool_choice: { type: "function", function: { name: "submit_root_cause_analysis" } },
-    }),
-  });
+  const resp = await fetchAIWithFallback(JSON.stringify({
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: userContent },
+    ],
+    tools: [analysisTool],
+    tool_choice: { type: "function", function: { name: "submit_root_cause_analysis" } },
+  }), "google/gemini-2.5-pro", "debugBranch");
 
   if (!resp.ok) {
     const text = await resp.text();
@@ -403,25 +398,14 @@ export async function analyzeSnippet(
 
   const userContent = `LANGUAGE: ${language || "auto-detect"}\n\nFAILURE DESCRIPTION (sanitized):\n${sanitize(failureDescription).sanitized}\n\nCODE SNIPPET (line-numbered, sanitized):\n${numbered.slice(0, 40_000)}`;
 
-  let resp: Response;
-  try {
-    resp = await fetch(aiChatCompletionsUrl(), {
-      method: "POST",
-      headers: aiAuthHeaders(),
-      body: JSON.stringify({
-        model: resolveModel("google/gemini-2.5-pro"),
-        messages: [
-          { role: "system", content: SNIPPET_SYSTEM },
-          { role: "user", content: userContent },
-        ],
-        tools: [snippetTool],
-        tool_choice: { type: "function", function: { name: "submit_snippet_analysis" } },
-      }),
-    });
-  } catch (err: any) {
-    const cause = err?.cause?.code || err?.code || err?.message || "unknown";
-    throw new Error(`Could not reach AI gateway (${cause}). The model endpoint is temporarily unreachable from this environment — try again in a moment.`);
-  }
+  const resp = await fetchAIWithFallback(JSON.stringify({
+    messages: [
+      { role: "system", content: SNIPPET_SYSTEM },
+      { role: "user", content: userContent },
+    ],
+    tools: [snippetTool],
+    tool_choice: { type: "function", function: { name: "submit_snippet_analysis" } },
+  }), "google/gemini-2.5-pro", "debugSnippet");
 
   if (!resp.ok) {
     const text = await resp.text();

@@ -28,6 +28,7 @@ function IncidentsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const analyze = useServerFn(analyzeIncident);
+  const triggeredRef = useRef<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     const { data } = await supabase.from("incidents").select("*").order("created_at", { ascending: false });

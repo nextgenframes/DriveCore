@@ -45,10 +45,17 @@ function IncidentsPage() {
 
   const selected = incidents.find((i) => i.id === selectedId);
 
-  const rerun = async (id: string) => {
+  const rerun = useCallback(async (id: string) => {
     try { await analyze({ data: { incidentId: id } }); toast.success("Analysis updated"); }
     catch (e: any) { toast.error(e.message); }
-  };
+  }, [analyze]);
+
+  // Auto-trigger analysis when a pending incident is selected
+  useEffect(() => {
+    if (selected && selected.status === "pending") {
+      rerun(selected.id);
+    }
+  }, [selected?.id, selected?.status, rerun]);
 
   const remove = async (id: string) => {
     await supabase.from("incidents").delete().eq("id", id);
@@ -172,12 +179,29 @@ function IncidentDetail({ incident, onRerun, onDelete }: { incident: Incident; o
         </div>
       </div>
 
+      {incident.status === "pending" && (
+        <div className="rounded-xl border border-primary/40 bg-primary/5 p-6 flex items-center justify-between gap-4">
+          <div>
+            <p className="font-medium text-sm">Awaiting analysis</p>
+            <p className="text-xs text-muted-foreground mt-1">Qwen hasn't analyzed this incident yet. Kick off the multi-agent pipeline now.</p>
+          </div>
+          <Button onClick={onRerun} className="bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5">
+            <Cpu className="h-3.5 w-3.5"/> Analyze now
+          </Button>
+        </div>
+      )}
+
       {incident.status === "analyzing" && <AgentPipeline />}
 
       {incident.status === "failed" && (
-        <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-6">
-          <p className="font-medium text-sm text-destructive">Analysis failed</p>
-          <p className="text-xs text-muted-foreground mt-1 font-mono">{incident.error}</p>
+        <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-6 flex items-start justify-between gap-4">
+          <div>
+            <p className="font-medium text-sm text-destructive">Analysis failed</p>
+            <p className="text-xs text-muted-foreground mt-1 font-mono">{incident.error}</p>
+          </div>
+          <Button onClick={onRerun} variant="outline" size="sm" className="gap-1.5 shrink-0">
+            <RefreshCw className="h-3.5 w-3.5"/> Retry
+          </Button>
         </div>
       )}
 

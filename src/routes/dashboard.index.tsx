@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { UploadDialog } from "@/components/upload-dialog";
 import { AgentPipeline } from "@/components/agent-pipeline";
 import { QwenBot } from "@/components/qwen-bot";
+import { StatusTimeline } from "@/components/status-timeline";
 import { SeverityBadge } from "@/components/severity-badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";

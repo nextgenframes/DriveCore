@@ -318,8 +318,8 @@ export async function analyzeDiff(diff: string, failureDescription: string, user
 
 export const debugBranch = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => InputSchema.parse(d))
-  .handler(async ({ data, context }): Promise<DebugResult> => {
-    return analyzeDiff(data.diff, data.failureDescription, context.userId);
+  .handler(async ({ data }): Promise<DebugResult> => {
+    return analyzeDiff(data.diff, data.failureDescription);
   });
 
 // ───────────────────────── Snippet mode (no diff) ─────────────────────────
@@ -448,7 +448,7 @@ export async function analyzeSnippet(
 
 export const debugSnippet = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => SnippetInputSchema.parse(d))
-  .handler(async ({ data, context }): Promise<DebugResult> => {
-    return analyzeSnippet(data.snippet, data.failureDescription, data.language, context.userId);
+  .handler(async ({ data }): Promise<DebugResult> => {
+    return analyzeSnippet(data.snippet, data.failureDescription, data.language);
   });
 

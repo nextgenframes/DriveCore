@@ -467,7 +467,7 @@ function deepRestore(value: any, rev: Map<string, string>): any {
 
 export const runForensicStage = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => StageInput.parse(d))
-  .handler(async ({ data, context }): Promise<{ result: StageResult; sanitizationStats: { identifiersTokenized: number; commentsStripped: number; secretsBlocked: number } }> => {
+  .handler(async ({ data }): Promise<{ result: StageResult; sanitizationStats: { identifiersTokenized: number; commentsStripped: number; secretsBlocked: number } }> => {
     getAIConfig();
 
     const codeS = sanitize(data.code);
@@ -500,7 +500,7 @@ export const runForensicStage = createServerFn({ method: "POST" })
       ],
       tools,
       tool_choice: { type: "function", function: { name: toolName } },
-    }), "google/gemini-2.5-flash", `forensicStage${data.stage}`, context.userId);
+    }), "google/gemini-2.5-flash", `forensicStage${data.stage}`);
 
     if (!resp.ok) {
       const text = await resp.text();

@@ -75,10 +75,10 @@ export function UploadDialog({ onCreated }: { onCreated?: (id: string) => void }
         await analyze({ data: { incidentId: inc.id } });
         toast.success("Analysis complete");
       } catch (e: any) {
-        toast.error(`Analysis failed: ${e.message}`);
+        toast.error(`Analysis failed: ${await getErrorMessage(e, "Analysis request failed")}`);
       }
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(await getErrorMessage(e, "Request failed"));
     } finally { setBusy(false); }
   };
 
@@ -138,4 +138,13 @@ export function UploadDialog({ onCreated }: { onCreated?: (id: string) => void }
       </DialogContent>
     </Dialog>
   );
+}
+
+async function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Response) {
+    return `${error.status} ${await error.text().catch(() => error.statusText || fallback)}`;
+  }
+
+  const message = (error as { message?: string } | null)?.message;
+  return message && message !== "[object Response]" ? message : fallback;
 }

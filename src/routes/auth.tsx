@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Radar, ShieldAlert } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { resolveLoginIdentifier } from "@/server/auth.functions";
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
@@ -17,6 +19,7 @@ function AuthPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const resolveIdentifier = useServerFn(resolveLoginIdentifier);
 
   // Map username -> synthetic email for Supabase (which requires email auth)
   const USERNAME_DOMAIN = "drivecore.local";
@@ -33,11 +36,18 @@ function AuthPage() {
     setLoading(true);
     try {
       const cleanUser = username.trim().toLowerCase();
-      if (!/^[a-z0-9_]{3,32}$/.test(cleanUser)) {
+      if (!cleanUser) {
+        throw new Error("Enter your username or email.");
+      }
+      const isEmailInput = cleanUser.includes("@");
+      if (!isEmailInput && !/^[a-z0-9_]{3,32}$/.test(cleanUser)) {
         throw new Error("Username must be 3–32 chars: letters, numbers, underscore.");
       }
-      const email = toEmail(cleanUser);
       if (mode === "signup") {
+        if (isEmailInput) {
+          throw new Error("Use a username when creating a new account.");
+        }
+        const email = toEmail(cleanUser);
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -49,6 +59,7 @@ function AuthPage() {
         if (error) throw error;
         toast.success("Account created. Signing you in…");
       } else {
+        const { email } = await resolveIdentifier({ data: { identifier: cleanUser } });
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       }
@@ -99,7 +110,7 @@ function AuthPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="username">Username</Label>
+            <Label htmlFor="username">Username or email</Label>
             <Input
               id="username"
               type="text"
@@ -107,7 +118,7 @@ function AuthPage() {
               autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="operator_01"
+              placeholder="operator_01 or you@example.com"
             />
           </div>
           <div className="space-y-2">

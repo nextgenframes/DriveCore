@@ -13,7 +13,7 @@ function Landing() {
           <div className="h-9 w-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shadow-[var(--shadow-glow)]"><Radar className="h-5 w-5"/></div>
           <span className="font-bold tracking-tight">DriveCore</span>
         </div>
-        <Link to="/auth" className="text-sm font-medium text-muted-foreground hover:text-foreground">Sign in →</Link>
+        <Link to="/dashboard" className="text-sm font-medium text-muted-foreground hover:text-foreground">Open console →</Link>
       </header>
 
       <section className="relative max-w-5xl mx-auto px-6 pt-20 pb-24 text-center">

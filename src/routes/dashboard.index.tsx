@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { UploadDialog } from "@/components/upload-dialog";
 import { AgentPipeline } from "@/components/agent-pipeline";
@@ -28,6 +28,7 @@ function IncidentsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const analyze = useServerFn(analyzeIncident);
+  const triggeredRef = useRef<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     const { data } = await supabase.from("incidents").select("*").order("created_at", { ascending: false });
@@ -46,13 +47,21 @@ function IncidentsPage() {
   const selected = incidents.find((i) => i.id === selectedId);
 
   const rerun = useCallback(async (id: string) => {
-    try { await analyze({ data: { incidentId: id } }); toast.success("Analysis updated"); }
-    catch (e: any) { toast.error(e.message); }
+    try {
+      await analyze({ data: { incidentId: id } });
+      toast.success("Analysis updated");
+    } catch (e: any) {
+      let msg = e?.message;
+      if (e instanceof Response) msg = `${e.status} ${await e.text().catch(() => e.statusText)}`;
+      if (!msg || msg === "[object Response]") msg = "Analysis request failed";
+      toast.error(msg);
+    }
   }, [analyze]);
 
-  // Auto-trigger analysis when a pending incident is selected
+  // Auto-trigger analysis once per pending incident (avoid realtime re-fire loops)
   useEffect(() => {
-    if (selected && selected.status === "pending") {
+    if (selected && selected.status === "pending" && !triggeredRef.current.has(selected.id)) {
+      triggeredRef.current.add(selected.id);
       rerun(selected.id);
     }
   }, [selected?.id, selected?.status, rerun]);

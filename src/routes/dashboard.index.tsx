@@ -8,6 +8,7 @@ import { StatusTimeline } from "@/components/status-timeline";
 import { SeverityBadge } from "@/components/severity-badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, AlertTriangle, FileText, Cpu, Shield, Activity, BookText, Download, RefreshCw, Trash2 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { analyzeIncident } from "@/server/incidents.functions";
@@ -74,59 +75,66 @@ function IncidentsPage() {
 
   return (
     <>
-      <header className="h-16 border-b border-border flex items-center justify-between px-8 bg-surface/40 backdrop-blur">
-        <div>
+      <header className="border-b border-border px-8 py-4 bg-surface/40 backdrop-blur flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-mono">Operations</div>
           <h1 className="text-lg font-semibold">Incident Bot</h1>
         </div>
-        <UploadDialog onCreated={(id) => setSelectedId(id)} />
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Select
+            value={selectedId ?? undefined}
+            onValueChange={(v) => setSelectedId(v)}
+            disabled={loading || incidents.length === 0}
+          >
+            <SelectTrigger className="w-full sm:w-[320px]">
+              <SelectValue
+                placeholder={
+                  loading
+                    ? "Loading reports…"
+                    : incidents.length === 0
+                      ? "No reports yet"
+                      : `Select report (${incidents.length})`
+                }
+              />
+            </SelectTrigger>
+            <SelectContent className="max-h-[60vh]">
+              {incidents.map((i) => (
+                <SelectItem key={i.id} value={i.id}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <StatusDot status={i.status} />
+                    <span className="truncate max-w-[220px]">{i.title}</span>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono shrink-0">
+                      {i.severity}
+                    </span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="ghost" size="icon" onClick={load} aria-label="Refresh feed">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          <UploadDialog onCreated={(id) => setSelectedId(id)} />
+        </div>
       </header>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[340px_1fr] min-h-0">
-        {/* Incident list */}
-        <div className="border-r border-border flex flex-col min-h-0">
-          <div className="px-5 py-3 border-b border-border flex items-center justify-between">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Feed ({incidents.length})</h2>
-            <button onClick={load} className="text-muted-foreground hover:text-foreground"><RefreshCw className="h-3.5 w-3.5"/></button>
+      <ScrollArea className="flex-1 bg-background">
+        {loading ? (
+          <div className="py-24 text-center text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin mx-auto" />
           </div>
-          <ScrollArea className="flex-1">
-            <div className="p-3 space-y-2">
-              {loading ? (
-                <div className="text-center py-12 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin mx-auto"/></div>
-              ) : incidents.length === 0 ? (
-                <EmptyHint />
-              ) : incidents.map((i) => (
-                <button
-                  key={i.id}
-                  onClick={() => setSelectedId(i.id)}
-                  className={cn(
-                    "w-full text-left p-3 rounded-lg border transition-colors group",
-                    selectedId === i.id
-                      ? "bg-surface-elevated border-primary/50 shadow-[var(--shadow-glow)]"
-                      : "bg-surface border-border hover:border-primary/30"
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-2 mb-1.5">
-                    <span className="font-medium text-sm leading-tight line-clamp-2">{i.title}</span>
-                    <SeverityBadge severity={i.severity} />
-                  </div>
-                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-mono uppercase">
-                    <StatusDot status={i.status} />
-                    <span>{i.status}</span>
-                    <span>·</span>
-                    <span>{new Date(i.created_at).toLocaleString()}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </ScrollArea>
-        </div>
-
-        {/* Detail */}
-        <ScrollArea className="bg-background">
-          {selected ? <IncidentDetail incident={selected} onRerun={() => rerun(selected.id)} onDelete={() => remove(selected.id)} /> : <DetailEmpty />}
-        </ScrollArea>
-      </div>
+        ) : incidents.length === 0 ? (
+          <EmptyHint />
+        ) : selected ? (
+          <IncidentDetail
+            incident={selected}
+            onRerun={() => rerun(selected.id)}
+            onDelete={() => remove(selected.id)}
+          />
+        ) : (
+          <DetailEmpty />
+        )}
+      </ScrollArea>
     </>
   );
 }
@@ -163,31 +171,49 @@ function IncidentDetail({ incident, onRerun, onDelete }: { incident: Incident; o
   };
 
   return (
-    <div className="p-8 space-y-6 max-w-5xl">
+    <div className="p-6 lg:p-8 space-y-6 max-w-5xl mx-auto">
+      {/* Title row — compact */}
       <div className="flex items-start justify-between gap-4">
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold tracking-tight">{incident.title}</h2>
+        <div className="min-w-0 space-y-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-xl font-bold tracking-tight truncate">{incident.title}</h2>
             <SeverityBadge severity={incident.severity} />
           </div>
-          <div className="text-xs text-muted-foreground font-mono uppercase tracking-wider flex items-center gap-2">
+          <div className="text-[11px] text-muted-foreground font-mono uppercase tracking-wider flex items-center gap-2">
             <StatusDot status={incident.status} /> {incident.status} · {incident.source_type} · {new Date(incident.created_at).toLocaleString()}
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1 shrink-0">
           <Button variant="ghost" size="sm" onClick={onRerun} className="gap-1.5"><RefreshCw className="h-3.5 w-3.5"/> Rerun</Button>
           {a?.reportMarkdown && <Button variant="ghost" size="sm" onClick={exportReport} className="gap-1.5"><Download className="h-3.5 w-3.5"/> Export</Button>}
-          <Button variant="ghost" size="sm" onClick={onDelete} className="gap-1.5 text-destructive hover:text-destructive"><Trash2 className="h-3.5 w-3.5"/></Button>
+          <Button variant="ghost" size="icon" onClick={onDelete} className="text-destructive hover:text-destructive"><Trash2 className="h-3.5 w-3.5"/></Button>
         </div>
       </div>
 
+      {/* Analysis FIRST — summary at the top */}
+      {a && (
+        <Section title="Executive Summary">
+          <p className="text-sm leading-relaxed text-foreground/90">{a.summary}</p>
+        </Section>
+      )}
+
+      {a && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <AgentChip icon={Cpu} label="Events" count={a.events?.length} />
+          <AgentChip icon={Shield} label="Safety" count={a.complianceFlags?.length} />
+          <AgentChip icon={Activity} label="Risk" count={a.rootCauses?.length} />
+          <AgentChip icon={BookText} label="Coaching" count={a.coachingRecommendations?.length} />
+        </div>
+      )}
+
+      {/* Pipeline status — below the analysis to reduce visual noise */}
       <StatusTimeline status={incident.status} />
 
       {incident.status === "pending" && (
-        <div className="rounded-xl border border-primary/40 bg-primary/5 p-6 flex items-center justify-between gap-4">
+        <div className="rounded-xl border border-primary/40 bg-primary/5 p-5 flex items-center justify-between gap-4">
           <div>
             <p className="font-medium text-sm">Awaiting analysis</p>
-            <p className="text-xs text-muted-foreground mt-1">Qwen hasn't analyzed this incident yet. Kick off the multi-agent pipeline now.</p>
+            <p className="text-xs text-muted-foreground mt-1">Qwen3 hasn't analyzed this incident yet. Kick off the multi-agent pipeline now.</p>
           </div>
           <Button onClick={onRerun} className="bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5">
             <Cpu className="h-3.5 w-3.5"/> Analyze now
@@ -198,7 +224,7 @@ function IncidentDetail({ incident, onRerun, onDelete }: { incident: Incident; o
       {incident.status === "analyzing" && <AgentPipeline />}
 
       {incident.status === "failed" && (
-        <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-6 flex items-start justify-between gap-4">
+        <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-5 flex items-start justify-between gap-4">
           <div>
             <p className="font-medium text-sm text-destructive">Analysis failed</p>
             <p className="text-xs text-muted-foreground mt-1 font-mono">{incident.error}</p>
@@ -211,18 +237,6 @@ function IncidentDetail({ incident, onRerun, onDelete }: { incident: Incident; o
 
       {a && (
         <>
-          {/* Agent grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <AgentChip icon={Cpu} label="Event Extraction" count={a.events?.length} />
-            <AgentChip icon={Shield} label="Safety" count={a.complianceFlags?.length} />
-            <AgentChip icon={Activity} label="Risk" count={a.rootCauses?.length} />
-            <AgentChip icon={BookText} label="Documentation" count={a.coachingRecommendations?.length} />
-          </div>
-
-          <Section title="Executive Summary">
-            <p className="text-sm leading-relaxed text-foreground/90">{a.summary}</p>
-          </Section>
-
           <div className="grid lg:grid-cols-2 gap-6">
             <Section title="Timeline of Events" icon={Cpu}>
               <ol className="space-y-2">

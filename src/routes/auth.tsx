@@ -14,10 +14,13 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<"login" | "signup">("login");
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Map username -> synthetic email for Supabase (which requires email auth)
+  const USERNAME_DOMAIN = "drivecore.local";
+  const toEmail = (u: string) => `${u.trim().toLowerCase()}@${USERNAME_DOMAIN}`;
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -29,12 +32,18 @@ function AuthPage() {
     e.preventDefault();
     setLoading(true);
     try {
+      const cleanUser = username.trim().toLowerCase();
+      if (!/^[a-z0-9_]{3,32}$/.test(cleanUser)) {
+        throw new Error("Username must be 3–32 chars: letters, numbers, underscore.");
+      }
+      const email = toEmail(cleanUser);
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
-          email, password,
+          email,
+          password,
           options: {
             emailRedirectTo: `${window.location.origin}/dashboard`,
-            data: { display_name: name || email.split("@")[0] },
+            data: { display_name: cleanUser, username: cleanUser },
           },
         });
         if (error) throw error;
@@ -89,15 +98,17 @@ function AuthPage() {
             </p>
           </div>
 
-          {mode === "signup" && (
-            <div className="space-y-2">
-              <Label htmlFor="name">Display name</Label>
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Jordan Reyes" />
-            </div>
-          )}
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ops@fleet.io" />
+            <Label htmlFor="username">Username</Label>
+            <Input
+              id="username"
+              type="text"
+              required
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="operator_01"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>

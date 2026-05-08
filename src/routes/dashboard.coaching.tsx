@@ -19,7 +19,7 @@ function CoachingPage() {
     <div className="p-8 space-y-6">
       <div>
         <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-mono">Operator Development</div>
-        <h1 className="text-2xl font-bold">Coaching Recommendations</h1>
+        <h1 className="text-2xl font-bold">Coaching Bot</h1>
       </div>
       <div className="space-y-2">
         {recs.map((r, i) => (

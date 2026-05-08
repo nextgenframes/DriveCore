@@ -77,7 +77,7 @@ function IncidentsPage() {
       <header className="h-16 border-b border-border flex items-center justify-between px-8 bg-surface/40 backdrop-blur">
         <div>
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-mono">Operations</div>
-          <h1 className="text-lg font-semibold">Incident Analysis</h1>
+          <h1 className="text-lg font-semibold">Incident Bot</h1>
         </div>
         <UploadDialog onCreated={(id) => setSelectedId(id)} />
       </header>

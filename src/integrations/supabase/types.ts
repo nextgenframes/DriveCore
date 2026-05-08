@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_call_logs: {
+        Row: {
+          attempts: number
+          base_url: string
+          created_at: string
+          duration_ms: number | null
+          endpoint: string
+          error: string | null
+          id: string
+          label: string
+          ok: boolean
+          requested_model: string
+          resolved_model: string
+          status_code: number | null
+          used_fallback: boolean
+          user_id: string | null
+        }
+        Insert: {
+          attempts?: number
+          base_url: string
+          created_at?: string
+          duration_ms?: number | null
+          endpoint: string
+          error?: string | null
+          id?: string
+          label: string
+          ok?: boolean
+          requested_model: string
+          resolved_model: string
+          status_code?: number | null
+          used_fallback?: boolean
+          user_id?: string | null
+        }
+        Update: {
+          attempts?: number
+          base_url?: string
+          created_at?: string
+          duration_ms?: number | null
+          endpoint?: string
+          error?: string | null
+          id?: string
+          label?: string
+          ok?: boolean
+          requested_model?: string
+          resolved_model?: string
+          status_code?: number | null
+          used_fallback?: boolean
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       incidents: {
         Row: {
           analysis: Json | null

@@ -98,15 +98,17 @@ function AuthPage() {
             </p>
           </div>
 
-          {mode === "signup" && (
-            <div className="space-y-2">
-              <Label htmlFor="name">Display name</Label>
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Jordan Reyes" />
-            </div>
-          )}
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ops@fleet.io" />
+            <Label htmlFor="username">Username</Label>
+            <Input
+              id="username"
+              type="text"
+              required
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="operator_01"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>

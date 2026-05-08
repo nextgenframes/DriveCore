@@ -1,11 +1,6 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
 import appCss from "../styles.css?url";
-import { installServerFnAuthFetch } from "@/integrations/supabase/server-fn-fetch";
-
-if (typeof window !== "undefined") {
-  installServerFnAuthFetch();
-}
 
 function NotFoundComponent() {
   return (

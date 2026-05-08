@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { sanitize, restore } from "./branch-debug.functions";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { fetchAIWithFallback, getAIConfig } from "./ai-config";
 
 // ───────────────────────── SSRF Guard ─────────────────────────
@@ -120,7 +119,6 @@ const ConnectSchema = z.object({
 });
 
 export const testVehicleConnection = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ConnectSchema.parse(d))
   .handler(async ({ data }) => {
     const results: Record<string, any> = {};
@@ -180,7 +178,6 @@ const FetchSchema = z.object({
 });
 
 export const fetchVehicleCode = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => FetchSchema.parse(d))
   .handler(async ({ data }): Promise<FetchedCode> => {
     const warnings: string[] = [];
@@ -469,9 +466,8 @@ function deepRestore(value: any, rev: Map<string, string>): any {
 }
 
 export const runForensicStage = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => StageInput.parse(d))
-  .handler(async ({ data, context }): Promise<{ result: StageResult; sanitizationStats: { identifiersTokenized: number; commentsStripped: number; secretsBlocked: number } }> => {
+  .handler(async ({ data }): Promise<{ result: StageResult; sanitizationStats: { identifiersTokenized: number; commentsStripped: number; secretsBlocked: number } }> => {
     getAIConfig();
 
     const codeS = sanitize(data.code);
@@ -504,7 +500,7 @@ export const runForensicStage = createServerFn({ method: "POST" })
       ],
       tools,
       tool_choice: { type: "function", function: { name: toolName } },
-    }), "google/gemini-2.5-flash", `forensicStage${data.stage}`, context.userId);
+    }), "google/gemini-2.5-flash", `forensicStage${data.stage}`);
 
     if (!resp.ok) {
       const text = await resp.text();

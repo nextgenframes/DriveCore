@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
 import { Route as DashboardReportsRouteImport } from './routes/dashboard.reports'
@@ -23,11 +22,6 @@ import { Route as ApiPublicBranchDebugRouteImport } from './routes/api/public/br
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -73,7 +67,6 @@ const ApiPublicBranchDebugRoute = ApiPublicBranchDebugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRouteWithChildren
   '/dashboard/branch-debug': typeof DashboardBranchDebugRoute
   '/dashboard/coaching': typeof DashboardCoachingRoute
@@ -85,7 +78,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/auth': typeof AuthRoute
   '/dashboard/branch-debug': typeof DashboardBranchDebugRoute
   '/dashboard/coaching': typeof DashboardCoachingRoute
   '/dashboard/compliance': typeof DashboardComplianceRoute
@@ -97,7 +89,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRouteWithChildren
   '/dashboard/branch-debug': typeof DashboardBranchDebugRoute
   '/dashboard/coaching': typeof DashboardCoachingRoute
@@ -111,7 +102,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/auth'
     | '/dashboard'
     | '/dashboard/branch-debug'
     | '/dashboard/coaching'
@@ -123,7 +113,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/auth'
     | '/dashboard/branch-debug'
     | '/dashboard/coaching'
     | '/dashboard/compliance'
@@ -134,7 +123,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/auth'
     | '/dashboard'
     | '/dashboard/branch-debug'
     | '/dashboard/coaching'
@@ -147,7 +135,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AuthRoute: typeof AuthRoute
   DashboardRoute: typeof DashboardRouteWithChildren
   ApiPublicBranchDebugRoute: typeof ApiPublicBranchDebugRoute
 }
@@ -159,13 +146,6 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -251,7 +231,6 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AuthRoute: AuthRoute,
   DashboardRoute: DashboardRouteWithChildren,
   ApiPublicBranchDebugRoute: ApiPublicBranchDebugRoute,
 }

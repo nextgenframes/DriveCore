@@ -25,9 +25,6 @@ export function UploadDialog({ onCreated }: { onCreated?: (id: string) => void }
   const submit = async () => {
     setBusy(true);
     try {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("Not authenticated");
-
       let raw_text: string | null = null;
       let file_url: string | null = null;
       let file_name: string | null = null;
@@ -42,18 +39,15 @@ export function UploadDialog({ onCreated }: { onCreated?: (id: string) => void }
         const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
         source_type = ext === "pdf" ? "pdf" : ["mp4","mov","webm","avi","mkv"].includes(ext) ? "video" : "file";
 
-        // Upload to storage
-        const path = `${u.user.id}/${Date.now()}-${file.name}`;
+        const path = `public/${Date.now()}-${file.name}`;
         const { error: upErr } = await supabase.storage.from("incident-files").upload(path, file);
         if (upErr) throw upErr;
         file_url = path;
 
-        // Extract text for plain text-ish files
         if (["txt","csv","json","log","md","xml","yaml","yml"].includes(ext)) {
           raw_text = await file.text();
           source_type = "file";
         } else if (ext === "pdf") {
-          // Best-effort: client cannot parse PDFs without lib; we send a note
           raw_text = `[PDF file: ${file.name}, ${(file.size/1024).toFixed(1)} KB. Extract incident details from the document referenced by file_name.]`;
         } else if (source_type === "video") {
           raw_text = `[Video file: ${file.name}, ${(file.size/1024/1024).toFixed(2)} MB. Treat as recorded incident footage; analyze based on title + any supplied notes. Recommend transcription if not yet performed.]`;
@@ -63,7 +57,7 @@ export function UploadDialog({ onCreated }: { onCreated?: (id: string) => void }
       const finalTitle = title.trim() || (raw_text ? raw_text.slice(0, 80) : file_name) || "Untitled incident";
       const { data: inc, error: insErr } = await supabase
         .from("incidents")
-        .insert({ user_id: u.user.id, title: finalTitle, raw_text, file_url, file_name, source_type, status: "pending" })
+        .insert({ title: finalTitle, raw_text, file_url, file_name, source_type, status: "pending" })
         .select()
         .single();
       if (insErr) throw insErr;

@@ -93,25 +93,8 @@ export async function fetchAIWithFallback(
         }
       }
     }
-    try {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      await supabaseAdmin.from("ai_call_logs").insert({
-        user_id: userId ?? null,
-        label,
-        requested_model: requestedModel,
-        resolved_model: model,
-        endpoint: endpointFinal,
-        base_url: usedFallbackFinal ? DEFAULT_BASE_URL : config.baseUrl,
-        used_fallback: usedFallbackFinal,
-        status_code: status,
-        ok,
-        attempts: totalAttempts,
-        duration_ms: duration,
-        error: errorText,
-      });
-    } catch (logErr) {
-      console.error(`[${label}] Failed to record ai_call_logs entry:`, logErr);
-    }
+    void userId;
+    console.log(`[ai:${label}] model=${model} endpoint=${endpointFinal} status=${status} ok=${ok} attempts=${totalAttempts} duration=${duration}ms${errorText ? ` error=${errorText}` : ""}${usedFallbackFinal ? " (fallback)" : ""}`);
   };
 
   for (const baseUrl of endpoints) {

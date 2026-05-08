@@ -1,8 +1,6 @@
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { Radar, AlertTriangle, FileBarChart, GraduationCap, Scale, LogOut, User as UserIcon, GitBranch, Car } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Link, useLocation } from "@tanstack/react-router";
+import { Radar, AlertTriangle, FileBarChart, GraduationCap, Scale, GitBranch, Car } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { User } from "@supabase/supabase-js";
 
 const nav = [
   { to: "/dashboard", label: "Incident Bot", icon: AlertTriangle },
@@ -13,14 +11,8 @@ const nav = [
   { to: "/dashboard/compliance", label: "Compliance Bot", icon: Scale },
 ] as const;
 
-export function Sidebar({ user }: { user: User | null }) {
+export function Sidebar() {
   const loc = useLocation();
-  const navigate = useNavigate();
-
-  const logout = async () => {
-    await supabase.auth.signOut();
-    navigate({ to: "/auth" });
-  };
 
   return (
     <aside className="w-64 shrink-0 bg-sidebar border-r border-sidebar-border flex flex-col">
@@ -56,24 +48,6 @@ export function Sidebar({ user }: { user: User | null }) {
           );
         })}
       </nav>
-
-      <div className="p-4 border-t border-sidebar-border space-y-3">
-        <div className="flex items-center gap-3 px-2">
-          <div className="h-8 w-8 rounded-full bg-accent flex items-center justify-center">
-            <UserIcon className="h-4 w-4" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-xs font-medium truncate">{user?.email ?? "—"}</div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Operator</div>
-          </div>
-        </div>
-        <button
-          onClick={logout}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-        >
-          <LogOut className="h-3.5 w-3.5" /> Sign out
-        </button>
-      </div>
     </aside>
   );
 }

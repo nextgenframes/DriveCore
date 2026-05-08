@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { fetchAIWithFallback, getAIConfig } from "./ai-config";
 import { z } from "zod";
 
@@ -318,10 +317,9 @@ export async function analyzeDiff(diff: string, failureDescription: string, user
 }
 
 export const debugBranch = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => InputSchema.parse(d))
-  .handler(async ({ data, context }): Promise<DebugResult> => {
-    return analyzeDiff(data.diff, data.failureDescription, context.userId);
+  .handler(async ({ data }): Promise<DebugResult> => {
+    return analyzeDiff(data.diff, data.failureDescription);
   });
 
 // ───────────────────────── Snippet mode (no diff) ─────────────────────────
@@ -449,9 +447,8 @@ export async function analyzeSnippet(
 }
 
 export const debugSnippet = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => SnippetInputSchema.parse(d))
-  .handler(async ({ data, context }): Promise<DebugResult> => {
-    return analyzeSnippet(data.snippet, data.failureDescription, data.language, context.userId);
+  .handler(async ({ data }): Promise<DebugResult> => {
+    return analyzeSnippet(data.snippet, data.failureDescription, data.language);
   });
 

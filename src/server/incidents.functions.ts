@@ -1,6 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { fetchAIWithFallback, getAIConfig } from "./ai-config";
 import { AV_KNOWLEDGE_BASE } from "./av-knowledge";
 import { z } from "zod";
@@ -64,29 +63,24 @@ const SYSTEM_PROMPT = `You are DriveCore Incident Bot, a multi-agent AI safety a
 The user may submit ANY free-form text — full incident reports, brief notes, questions, partial logs, or general descriptions. Reason freely with your full intelligence: infer context, fill gaps with plausible domain knowledge, and produce useful analysis even when input is sparse or ambiguous. Mark uncertainty where appropriate. Always call submit_analysis with the structured result.`;
 
 export const analyzeIncident = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => InputSchema.parse(d))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data }) => {
     const supabase = supabaseAdmin;
     getAIConfig(); // validates env config early
 
-    // Ownership-scoped fetch — RLS-equivalent guard even with admin client
     const { data: incident, error: fetchErr } = await supabase
       .from("incidents")
       .select("*")
       .eq("id", data.incidentId)
-      .eq("user_id", context.userId)
       .single();
     if (fetchErr || !incident) throw new Response("Incident not found", { status: 404 });
 
     await supabase.from("incidents").update({ status: "analyzing", error: null }).eq("id", data.incidentId);
 
     try {
-      // Pull the user's recent self-improvement learnings (Self-Improving Agent skill)
       const { data: learnings } = await supabase
         .from("qwen_learnings")
         .select("category, content, context")
-        .eq("user_id", context.userId)
         .order("created_at", { ascending: false })
         .limit(20);
 
@@ -109,7 +103,7 @@ export const analyzeIncident = createServerFn({ method: "POST" })
         tool_choice: { type: "function", function: { name: "submit_analysis" } },
       });
 
-      const resp = await fetchAIWithFallback(requestBody, "google/gemini-2.5-flash", "analyzeIncident", context.userId);
+      const resp = await fetchAIWithFallback(requestBody, "google/gemini-2.5-flash", "analyzeIncident");
 
       if (!resp.ok) {
         const text = await resp.text();

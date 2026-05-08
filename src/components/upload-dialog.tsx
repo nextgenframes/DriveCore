@@ -23,7 +23,6 @@ export function UploadDialog({ onCreated }: { onCreated?: (id: string) => void }
   const reset = () => { setTitle(""); setText(""); setFile(null); setTab("text"); };
 
   const submit = async () => {
-    if (!title.trim()) return toast.error("Title is required");
     setBusy(true);
     try {
       const { data: u } = await supabase.auth.getUser();
@@ -35,8 +34,8 @@ export function UploadDialog({ onCreated }: { onCreated?: (id: string) => void }
       let source_type: "text" | "file" | "pdf" | "video" = "text";
 
       if (tab === "text") {
-        if (!text.trim()) throw new Error("Paste an incident report or transcript");
-        raw_text = text;
+        if (!text.trim() && !title.trim()) throw new Error("Type something to analyze");
+        raw_text = text || title;
       } else {
         if (!file) throw new Error("Select a file");
         file_name = file.name;
@@ -61,9 +60,10 @@ export function UploadDialog({ onCreated }: { onCreated?: (id: string) => void }
         }
       }
 
+      const finalTitle = title.trim() || (raw_text ? raw_text.slice(0, 80) : file_name) || "Untitled incident";
       const { data: inc, error: insErr } = await supabase
         .from("incidents")
-        .insert({ user_id: u.user.id, title, raw_text, file_url, file_name, source_type, status: "pending" })
+        .insert({ user_id: u.user.id, title: finalTitle, raw_text, file_url, file_name, source_type, status: "pending" })
         .select()
         .single();
       if (insErr) throw insErr;

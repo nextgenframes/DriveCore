@@ -116,6 +116,7 @@ function IncidentsPage() {
         summary={selected?.analysis?.summary}
         severity={selected?.severity}
         error={selected?.error}
+        incidentId={selected?.id ?? null}
       />
     </>
   );

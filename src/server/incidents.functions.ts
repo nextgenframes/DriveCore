@@ -1,6 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { fetchAIWithFallback, getAIConfig } from "./ai-config";
 import { AV_KNOWLEDGE_BASE } from "./av-knowledge";
 import { z } from "zod";
@@ -64,7 +63,6 @@ const SYSTEM_PROMPT = `You are DriveCore Incident Bot, a multi-agent AI safety a
 The user may submit ANY free-form text — full incident reports, brief notes, questions, partial logs, or general descriptions. Reason freely with your full intelligence: infer context, fill gaps with plausible domain knowledge, and produce useful analysis even when input is sparse or ambiguous. Mark uncertainty where appropriate. Always call submit_analysis with the structured result.`;
 
 export const analyzeIncident = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => InputSchema.parse(d))
   .handler(async ({ data, context }) => {
     const supabase = supabaseAdmin;

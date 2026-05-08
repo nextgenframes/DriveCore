@@ -403,19 +403,25 @@ export async function analyzeSnippet(
 
   const userContent = `LANGUAGE: ${language || "auto-detect"}\n\nFAILURE DESCRIPTION (sanitized):\n${sanitize(failureDescription).sanitized}\n\nCODE SNIPPET (line-numbered, sanitized):\n${numbered.slice(0, 40_000)}`;
 
-  const resp = await fetch(aiChatCompletionsUrl(), {
-    method: "POST",
-    headers: aiAuthHeaders(),
-    body: JSON.stringify({
-      model: resolveModel("google/gemini-2.5-pro"),
-      messages: [
-        { role: "system", content: SNIPPET_SYSTEM },
-        { role: "user", content: userContent },
-      ],
-      tools: [snippetTool],
-      tool_choice: { type: "function", function: { name: "submit_snippet_analysis" } },
-    }),
-  });
+  let resp: Response;
+  try {
+    resp = await fetch(aiChatCompletionsUrl(), {
+      method: "POST",
+      headers: aiAuthHeaders(),
+      body: JSON.stringify({
+        model: resolveModel("google/gemini-2.5-pro"),
+        messages: [
+          { role: "system", content: SNIPPET_SYSTEM },
+          { role: "user", content: userContent },
+        ],
+        tools: [snippetTool],
+        tool_choice: { type: "function", function: { name: "submit_snippet_analysis" } },
+      }),
+    });
+  } catch (err: any) {
+    const cause = err?.cause?.code || err?.code || err?.message || "unknown";
+    throw new Error(`Could not reach AI gateway (${cause}). The model endpoint is temporarily unreachable from this environment — try again in a moment.`);
+  }
 
   if (!resp.ok) {
     const text = await resp.text();

@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { UploadDialog } from "@/components/upload-dialog";
 import { AgentPipeline } from "@/components/agent-pipeline";
+import { QwenBot } from "@/components/qwen-bot";
 import { SeverityBadge } from "@/components/severity-badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -109,6 +110,13 @@ function IncidentsPage() {
           {selected ? <IncidentDetail incident={selected} onRerun={() => rerun(selected.id)} onDelete={() => remove(selected.id)} /> : <DetailEmpty />}
         </ScrollArea>
       </div>
+
+      <QwenBot
+        status={(selected?.status as any) ?? "idle"}
+        summary={selected?.analysis?.summary}
+        severity={selected?.severity}
+        error={selected?.error}
+      />
     </>
   );
 }

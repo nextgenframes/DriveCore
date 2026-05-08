@@ -32,12 +32,18 @@ function AuthPage() {
     e.preventDefault();
     setLoading(true);
     try {
+      const cleanUser = username.trim().toLowerCase();
+      if (!/^[a-z0-9_]{3,32}$/.test(cleanUser)) {
+        throw new Error("Username must be 3–32 chars: letters, numbers, underscore.");
+      }
+      const email = toEmail(cleanUser);
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
-          email, password,
+          email,
+          password,
           options: {
             emailRedirectTo: `${window.location.origin}/dashboard`,
-            data: { display_name: name || email.split("@")[0] },
+            data: { display_name: cleanUser, username: cleanUser },
           },
         });
         if (error) throw error;

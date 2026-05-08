@@ -37,3 +37,80 @@ export function resolveModel(requested: string): string {
   const { defaultModel } = getAIConfig();
   return defaultModel ?? requested;
 }
+
+function isTransientAiStatus(status: number) {
+  return [408, 425, 429, 500, 502, 503, 504].includes(status);
+}
+
+function extractFetchDetail(error: unknown) {
+  const e = error as {
+    message?: string;
+    cause?: { message?: string; code?: string };
+  };
+  return e?.cause?.message || e?.cause?.code || e?.message || "Unknown network error";
+}
+
+export async function fetchAIWithFallback(body: string, requestedModel: string, label: string) {
+  const config = getAIConfig();
+  const model = resolveModel(requestedModel);
+  const endpoints = [config.baseUrl];
+
+  if (config.baseUrl !== DEFAULT_BASE_URL && process.env.LOVABLE_API_KEY) {
+    endpoints.push(DEFAULT_BASE_URL);
+  }
+
+  let lastError: unknown;
+  let lastStatusResponse: Response | null = null;
+
+  for (const baseUrl of endpoints) {
+    const usingFallback = baseUrl !== config.baseUrl;
+    const headers = {
+      "Content-Type": "application/json",
+      ...(baseUrl === DEFAULT_BASE_URL
+        ? { Authorization: `Bearer ${process.env.LOVABLE_API_KEY ?? ""}` }
+        : aiAuthHeaders()),
+    };
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await fetch(`${baseUrl}/chat/completions`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            ...JSON.parse(body),
+            model,
+          }),
+        });
+
+        if (!response.ok && isTransientAiStatus(response.status) && attempt < 2) {
+          console.error(`[${label}] AI request returned ${response.status} on attempt ${attempt + 1}${usingFallback ? " (fallback gateway)" : ""}`);
+          await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+          continue;
+        }
+
+        if (!response.ok) {
+          lastStatusResponse = response;
+        }
+
+        return response;
+      } catch (error) {
+        lastError = error;
+        console.error(
+          `[${label}] AI fetch attempt ${attempt + 1} failed${usingFallback ? " (fallback gateway)" : ""}:`,
+          extractFetchDetail(error),
+        );
+
+        if (attempt < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+        }
+      }
+    }
+  }
+
+  if (lastStatusResponse) {
+    return lastStatusResponse;
+  }
+
+  const detail = extractFetchDetail(lastError);
+  throw new Error(`Could not reach the analysis service: ${detail}. Try again in a moment.`);
+}

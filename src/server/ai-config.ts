@@ -34,8 +34,11 @@ export function aiAuthHeaders(): Record<string, string> {
 }
 
 export function resolveModel(requested: string): string {
-  const { defaultModel } = getAIConfig();
-  return defaultModel ?? requested;
+  const { defaultModel, isLovable } = getAIConfig();
+  // AI_MODEL override only applies to self-hosted endpoints — the Lovable
+  // gateway has a fixed allow-list and would 400 on names like "qwen3".
+  if (defaultModel && !isLovable) return defaultModel;
+  return requested;
 }
 
 function isTransientAiStatus(status: number) {
@@ -130,7 +133,9 @@ export async function fetchAIWithFallback(
           headers,
           body: JSON.stringify({
             ...JSON.parse(body),
-            model,
+            // On the Lovable gateway, ignore AI_MODEL override (e.g. "qwen3")
+            // because the gateway only accepts its own allow-list.
+            model: baseUrl === DEFAULT_BASE_URL ? requestedModel : model,
           }),
         });
 

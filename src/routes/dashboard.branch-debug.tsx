@@ -171,7 +171,7 @@ function BranchDebugPage() {
       setResult(res);
       toast.success(`Found ${res.suspects.length} suspect${res.suspects.length === 1 ? "" : "s"}`);
     } catch (e: any) {
-      toast.error(e.message ?? "Analysis failed");
+      toast.error(await getErrorMessage(e, "Analysis failed"));
     } finally {
       setAnalyzing(false);
     }
@@ -761,6 +761,15 @@ function SuspectCard({ suspect, editorBase, rank }: { suspect: Suspect; editorBa
       )}
     </div>
   );
+}
+
+async function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Response) {
+    return `${error.status} ${await error.text().catch(() => error.statusText || fallback)}`;
+  }
+
+  const message = (error as { message?: string } | null)?.message;
+  return message && message !== "[object Response]" ? message : fallback;
 }
 
 

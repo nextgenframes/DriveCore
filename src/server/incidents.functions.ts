@@ -91,6 +91,7 @@ export const analyzeIncident = createServerFn({ method: "POST" })
           model: resolveModel("google/gemini-2.5-flash"),
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
+            { role: "system", content: AV_KNOWLEDGE_BASE },
             { role: "user", content: userContent },
           ],
           tools: [analysisTool],

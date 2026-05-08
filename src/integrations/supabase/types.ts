@@ -14,57 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      ai_call_logs: {
-        Row: {
-          attempts: number
-          base_url: string
-          created_at: string
-          duration_ms: number | null
-          endpoint: string
-          error: string | null
-          id: string
-          label: string
-          ok: boolean
-          requested_model: string
-          resolved_model: string
-          status_code: number | null
-          used_fallback: boolean
-          user_id: string | null
-        }
-        Insert: {
-          attempts?: number
-          base_url: string
-          created_at?: string
-          duration_ms?: number | null
-          endpoint: string
-          error?: string | null
-          id?: string
-          label: string
-          ok?: boolean
-          requested_model: string
-          resolved_model: string
-          status_code?: number | null
-          used_fallback?: boolean
-          user_id?: string | null
-        }
-        Update: {
-          attempts?: number
-          base_url?: string
-          created_at?: string
-          duration_ms?: number | null
-          endpoint?: string
-          error?: string | null
-          id?: string
-          label?: string
-          ok?: boolean
-          requested_model?: string
-          resolved_model?: string
-          status_code?: number | null
-          used_fallback?: boolean
-          user_id?: string | null
-        }
-        Relationships: []
-      }
       incidents: {
         Row: {
           analysis: Json | null
@@ -79,7 +28,7 @@ export type Database = {
           status: Database["public"]["Enums"]["incident_status"]
           title: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           analysis?: Json | null
@@ -94,7 +43,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["incident_status"]
           title: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           analysis?: Json | null
@@ -109,25 +58,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["incident_status"]
           title?: string
           updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      profiles: {
-        Row: {
-          created_at: string
-          display_name: string | null
-          id: string
-        }
-        Insert: {
-          created_at?: string
-          display_name?: string | null
-          id: string
-        }
-        Update: {
-          created_at?: string
-          display_name?: string | null
-          id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -139,7 +70,7 @@ export type Database = {
           created_at: string
           id: string
           incident_id: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           category?: Database["public"]["Enums"]["learning_category"]
@@ -148,7 +79,7 @@ export type Database = {
           created_at?: string
           id?: string
           incident_id?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           category?: Database["public"]["Enums"]["learning_category"]
@@ -157,7 +88,7 @@ export type Database = {
           created_at?: string
           id?: string
           incident_id?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -169,39 +100,14 @@ export type Database = {
           },
         ]
       }
-      user_roles: {
-        Row: {
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Insert: {
-          id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Update: {
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
+      [_ in never]: never
     }
     Enums: {
-      app_role: "admin" | "operator"
       incident_severity: "low" | "medium" | "high" | "critical" | "unknown"
       incident_status: "pending" | "analyzing" | "complete" | "failed"
       learning_category: "correction" | "insight" | "error" | "best_practice"
@@ -333,7 +239,6 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "operator"],
       incident_severity: ["low", "medium", "high", "critical", "unknown"],
       incident_status: ["pending", "analyzing", "complete", "failed"],
       learning_category: ["correction", "insight", "error", "best_practice"],

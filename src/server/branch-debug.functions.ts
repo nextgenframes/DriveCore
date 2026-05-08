@@ -231,7 +231,7 @@ const analysisTool = {
   },
 };
 
-const SYSTEM_PROMPT = `You are BranchDebug, a code-aware root-cause analyzer. Inputs are:
+const SYSTEM_PROMPT = `You are BranchDebug Bot, a code-aware root-cause analyzer powered by Qwen3 reasoning. Inputs are:
 1. A SANITIZED unified git diff where real identifiers have been replaced with opaque tokens like fn_0019.
 2. A natural-language description of an observed failure.
 3. A numbered list of HUNKS (filePath, lineRange, function context).
@@ -367,7 +367,7 @@ const snippetTool = {
   },
 };
 
-const SNIPPET_SYSTEM = `You are BranchDebug in SNIPPET mode — an expert code reviewer with deep knowledge of every mainstream programming language (Python, TypeScript/JavaScript, C/C++, C#, Java, Kotlin, Swift, Go, Rust, Ruby, PHP, Scala, Elixir, Haskell, Lua, R, Dart, SQL, Bash, HTML/CSS, YAML/JSON/TOML, and more).
+const SNIPPET_SYSTEM = `You are BranchDebug Bot in SNIPPET mode, powered by Qwen3 reasoning — an expert code reviewer with deep knowledge of every mainstream programming language (Python, TypeScript/JavaScript, C/C++, C#, Java, Kotlin, Swift, Go, Rust, Ruby, PHP, Scala, Elixir, Haskell, Lua, R, Dart, SQL, Bash, HTML/CSS, YAML/JSON/TOML, and more).
 
 The user pasted a raw code snippet (not a diff). Identifiers are tokenized as fn_NNNN; treat them as opaque names. Carefully analyze the snippet and find ANY of the following classes of bugs that match the failure description (or are obvious defects, even if not described):
 

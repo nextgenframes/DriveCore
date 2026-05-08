@@ -50,7 +50,12 @@ function extractFetchDetail(error: unknown) {
   return e?.cause?.message || e?.cause?.code || e?.message || "Unknown network error";
 }
 
-export async function fetchAIWithFallback(body: string, requestedModel: string, label: string) {
+export async function fetchAIWithFallback(
+  body: string,
+  requestedModel: string,
+  label: string,
+  userId?: string | null,
+) {
   const config = getAIConfig();
   const model = resolveModel(requestedModel);
   const endpoints = [config.baseUrl];
@@ -61,6 +66,50 @@ export async function fetchAIWithFallback(body: string, requestedModel: string, 
 
   let lastError: unknown;
   let lastStatusResponse: Response | null = null;
+  let totalAttempts = 0;
+  let usedFallbackFinal = false;
+  let endpointFinal = `${config.baseUrl}/chat/completions`;
+  const startedAt = Date.now();
+
+  const finalize = async (
+    response: Response | null,
+    error: unknown,
+  ) => {
+    const duration = Date.now() - startedAt;
+    const status = response?.status ?? null;
+    const ok = !!response?.ok;
+    let errorText: string | null = null;
+    if (!ok) {
+      if (error) errorText = extractFetchDetail(error);
+      else if (response) {
+        try {
+          const cloned = response.clone();
+          errorText = (await cloned.text()).slice(0, 500);
+        } catch {
+          errorText = `HTTP ${response.status}`;
+        }
+      }
+    }
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      await supabaseAdmin.from("ai_call_logs").insert({
+        user_id: userId ?? null,
+        label,
+        requested_model: requestedModel,
+        resolved_model: model,
+        endpoint: endpointFinal,
+        base_url: usedFallbackFinal ? DEFAULT_BASE_URL : config.baseUrl,
+        used_fallback: usedFallbackFinal,
+        status_code: status,
+        ok,
+        attempts: totalAttempts,
+        duration_ms: duration,
+        error: errorText,
+      });
+    } catch (logErr) {
+      console.error(`[${label}] Failed to record ai_call_logs entry:`, logErr);
+    }
+  };
 
   for (const baseUrl of endpoints) {
     const usingFallback = baseUrl !== config.baseUrl;
@@ -72,6 +121,9 @@ export async function fetchAIWithFallback(body: string, requestedModel: string, 
     };
 
     for (let attempt = 0; attempt < 3; attempt++) {
+      totalAttempts++;
+      usedFallbackFinal = usingFallback;
+      endpointFinal = `${baseUrl}/chat/completions`;
       try {
         const response = await fetch(`${baseUrl}/chat/completions`, {
           method: "POST",
@@ -92,6 +144,7 @@ export async function fetchAIWithFallback(body: string, requestedModel: string, 
           lastStatusResponse = response;
         }
 
+        await finalize(response, null);
         return response;
       } catch (error) {
         lastError = error;
@@ -108,9 +161,11 @@ export async function fetchAIWithFallback(body: string, requestedModel: string, 
   }
 
   if (lastStatusResponse) {
+    await finalize(lastStatusResponse, null);
     return lastStatusResponse;
   }
 
+  await finalize(null, lastError);
   const detail = extractFetchDetail(lastError);
   throw new Error(`Could not reach the analysis service: ${detail}. Try again in a moment.`);
 }

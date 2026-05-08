@@ -84,20 +84,38 @@ export const analyzeIncident = createServerFn({ method: "POST" })
     try {
       const userContent = `INCIDENT TITLE: ${incident.title}\nSOURCE TYPE: ${incident.source_type}\nFILE: ${incident.file_name ?? "(none)"}\n\n--- RAW INPUT ---\n${incident.raw_text ?? "(no text content provided)"}`;
 
-      const resp = await fetch(aiChatCompletionsUrl(), {
-        method: "POST",
-        headers: aiAuthHeaders(),
-        body: JSON.stringify({
-          model: resolveModel("google/gemini-2.5-flash"),
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "system", content: AV_KNOWLEDGE_BASE },
-            { role: "user", content: userContent },
-          ],
-          tools: [analysisTool],
-          tool_choice: { type: "function", function: { name: "submit_analysis" } },
-        }),
+      const requestBody = JSON.stringify({
+        model: resolveModel("google/gemini-2.5-flash"),
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: AV_KNOWLEDGE_BASE },
+          { role: "user", content: userContent },
+        ],
+        tools: [analysisTool],
+        tool_choice: { type: "function", function: { name: "submit_analysis" } },
       });
+
+      // Retry transient network failures (SSR worker occasionally drops the
+      // first outbound fetch). Up to 3 attempts with exponential backoff.
+      let resp: Response | undefined;
+      let lastErr: unknown;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          resp = await fetch(aiChatCompletionsUrl(), {
+            method: "POST",
+            headers: aiAuthHeaders(),
+            body: requestBody,
+          });
+          break;
+        } catch (e) {
+          lastErr = e;
+          await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+        }
+      }
+      if (!resp) {
+        const msg = lastErr instanceof Error ? lastErr.message : String(lastErr);
+        throw new Error(`Could not reach AI gateway: ${msg}`);
+      }
 
       if (!resp.ok) {
         const text = await resp.text();

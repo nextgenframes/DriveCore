@@ -27,7 +27,7 @@ function Landing() {
           DriveCore routes every autonomous vehicle event, near miss, and sensor log through four specialized AI agents — surfacing root causes, compliance concerns, and operator coaching plans in seconds.
         </p>
         <div className="mt-10 flex items-center justify-center gap-3">
-          <Link to="/auth" className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 shadow-[var(--shadow-glow)]">
+          <Link to="/dashboard" className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 shadow-[var(--shadow-glow)]">
             Open the console <ArrowRight className="h-4 w-4"/>
           </Link>
         </div>

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { UploadDialog } from "@/components/upload-dialog";
 import { AgentPipeline } from "@/components/agent-pipeline";
 import { QwenBot } from "@/components/qwen-bot";
+import { StatusTimeline } from "@/components/status-timeline";
 import { SeverityBadge } from "@/components/severity-badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -187,6 +188,8 @@ function IncidentDetail({ incident, onRerun, onDelete }: { incident: Incident; o
           <Button variant="ghost" size="sm" onClick={onDelete} className="gap-1.5 text-destructive hover:text-destructive"><Trash2 className="h-3.5 w-3.5"/></Button>
         </div>
       </div>
+
+      <StatusTimeline status={incident.status} />
 
       {incident.status === "pending" && (
         <div className="rounded-xl border border-primary/40 bg-primary/5 p-6 flex items-center justify-between gap-4">

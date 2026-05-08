@@ -14,10 +14,13 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<"login" | "signup">("login");
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Map username -> synthetic email for Supabase (which requires email auth)
+  const USERNAME_DOMAIN = "drivecore.local";
+  const toEmail = (u: string) => `${u.trim().toLowerCase()}@${USERNAME_DOMAIN}`;
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {

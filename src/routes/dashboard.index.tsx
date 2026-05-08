@@ -8,6 +8,7 @@ import { StatusTimeline } from "@/components/status-timeline";
 import { SeverityBadge } from "@/components/severity-badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, AlertTriangle, FileText, Cpu, Shield, Activity, BookText, Download, RefreshCw, Trash2 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { analyzeIncident } from "@/server/incidents.functions";

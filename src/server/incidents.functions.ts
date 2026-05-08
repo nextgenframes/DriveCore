@@ -107,14 +107,16 @@ export const analyzeIncident = createServerFn({ method: "POST" })
             body: requestBody,
           });
           break;
-        } catch (e) {
+        } catch (e: any) {
           lastErr = e;
+          console.error(`[analyzeIncident] fetch attempt ${attempt + 1} failed:`, e?.message, e?.cause?.message, e?.cause?.code);
           await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
         }
       }
       if (!resp) {
-        const msg = lastErr instanceof Error ? lastErr.message : String(lastErr);
-        throw new Error(`Could not reach AI gateway: ${msg}`);
+        const e = lastErr as any;
+        const detail = e?.cause?.message || e?.cause?.code || e?.message || String(lastErr);
+        throw new Error(`Could not reach AI gateway: ${detail}`);
       }
 
       if (!resp.ok) {

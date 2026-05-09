@@ -2,6 +2,3 @@ fastapi
 uvicorn
 httpx
 aiofiles
-langchain
-langchain-ollama
-langchain-community

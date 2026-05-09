@@ -1,20 +1,20 @@
-FROM ollama/ollama:latest
+FROM node:20-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+RUN npm install -g bun
 
 WORKDIR /app
 
-COPY requirements.txt ./
-RUN pip3 install --no-cache-dir -r requirements.txt
+COPY package.json ./
+RUN bun install
 
-COPY backend.py ./
+COPY . .
 
-ENV OLLAMA_HOST=0.0.0.0:11434
-EXPOSE 7860 11434
+ENV AI_BASE_URL=http://165.245.137.74:8006
+ENV AI_API_KEY=dummy
+ENV AI_MODEL=qwen3
 
-ENTRYPOINT ["/bin/sh", "-lc"]
-CMD ["ollama serve >/tmp/ollama.log 2>&1 & until curl -sf http://127.0.0.1:11434/api/tags >/dev/null; do sleep 2; done; ollama pull qwen3 && uvicorn backend:app --host 0.0.0.0 --port 7860"]
+RUN bun run build
+
+EXPOSE 7860
+
+CMD ["bunx", "serve", "dist/client", "-l", "7860", "--single"]

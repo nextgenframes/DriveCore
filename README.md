@@ -7,18 +7,18 @@
 
 ---
 Quick Start Instructions to Run on AMD GPU Droplet:
-1) # Start Ollama
+1) Start Ollama
 ollama serve &
 
-2) # Start Qwen backend
-# Go into Docker container first
+2) Start Qwen backend
+->Go into Docker container first
 cd /app/Autopulse
 uvicorn backend:app --host 0.0.0.0 --port 8006 &
 
-3) # Start frontend
+3) Start frontend
 bun run dev --host 0.0.0.0 --port 30000 &
 
-4) #Go to Website
+4) Go to Website
 http://165.245.137.74:30000
 
 

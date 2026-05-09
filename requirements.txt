@@ -1,5 +1,7 @@
 fastapi
 uvicorn
-pydantic
+httpx
+aiofiles
 langchain
 langchain-ollama
+langchain-community

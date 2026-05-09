@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { fetchAIWithFallback, getAIConfig } from "./ai-config";
-import { AV_KNOWLEDGE_BASE } from "./av-knowledge";
+import { fetchAIWithFallback, getAIConfig } from "./ai-config.server";
+import { AV_KNOWLEDGE_BASE } from "./av-knowledge.server";
 import { z } from "zod";
 
 const InputSchema = z.object({

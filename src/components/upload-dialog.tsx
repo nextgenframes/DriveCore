@@ -9,7 +9,7 @@ import { Upload, FileText, FileType, Video, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
-import { analyzeIncident } from "@/server/incidents.functions";
+import { analyzeIncident } from "@/lib/incidents.functions";
 
 export function UploadDialog({ onCreated }: { onCreated?: (id: string) => void }) {
   const [open, setOpen] = useState(false);

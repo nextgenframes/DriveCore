@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { fetchAIWithFallback, getAIConfig } from "./ai-config";
+import { fetchAIWithFallback, getAIConfig } from "./ai-config.server";
 import { z } from "zod";
 
 const InputSchema = z.object({

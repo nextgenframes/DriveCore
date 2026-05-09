@@ -18,6 +18,10 @@ uvicorn backend:app --host 0.0.0.0 --port 8006 &
 3) # Start frontend
 bun run dev --host 0.0.0.0 --port 30000 &
 
+4) #Go to Website
+http://165.245.137.74:30000
+
+
 ## What is DriveCore?
 
 DriveCore routes every autonomous vehicle incident, near miss, and sensor log through a multi-step AI agent pipeline — surfacing root causes, compliance concerns, and operator coaching plans in seconds.

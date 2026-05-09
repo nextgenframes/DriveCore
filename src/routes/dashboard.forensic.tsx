@@ -9,7 +9,7 @@ import {
   type Stage1Result,
   type Stage2Result,
   type Stage3Result,
-} from "@/server/forensic.functions";
+} from "@/lib/forensic.functions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";

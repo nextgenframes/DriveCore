@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, AlertTriangle, FileText, Cpu, Shield, Activity, BookText, Download, RefreshCw, Trash2 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { analyzeIncident } from "@/server/incidents.functions";
+import { analyzeIncident } from "@/lib/incidents.functions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 

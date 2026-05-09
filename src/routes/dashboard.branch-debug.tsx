@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { GitBranch, Play, RotateCcw, Shield, ChevronLeft, ChevronRight, Check, Loader2, Sparkles, FileCode, ExternalLink, Copy, Eye, ArrowRight, Download, FileJson, FileText, Terminal, Edit3, Lock, Send, Brain, Unlock, Target, Ticket, Link2, Paperclip, type LucideIcon } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { debugBranch, debugSnippet, type DebugResult, type Suspect } from "@/server/branch-debug.functions";
+import { debugBranch, debugSnippet, type DebugResult, type Suspect } from "@/lib/branch-debug.functions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";

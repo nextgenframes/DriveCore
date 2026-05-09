@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createHash, timingSafeEqual } from "node:crypto";
-import { analyzeDiff } from "@/server/branch-debug.functions";
+import { analyzeDiff } from "@/lib/branch-debug.functions";
 
 // This endpoint exists for the VS Code / CLI helper. It is no longer open to
 // the world: every request must carry a shared bearer token that matches the

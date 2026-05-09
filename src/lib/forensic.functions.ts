@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { sanitize, restore } from "./branch-debug.functions";
-import { fetchAIWithFallback, getAIConfig } from "./ai-config";
+import { fetchAIWithFallback, getAIConfig } from "./ai-config.server";
 
 // ───────────────────────── SSRF Guard ─────────────────────────
 // Reject loopback, private (RFC1918), link-local, and cloud metadata addresses

@@ -1,6 +1,6 @@
 FROM node:20-slim
 
-RUN npm install -g bun
+RUN npm install -g bun serve
 
 WORKDIR /app
 
@@ -15,6 +15,8 @@ ENV AI_MODEL=qwen3
 
 RUN bun run build
 
+WORKDIR /app/dist/client
+
 EXPOSE 7860
 
-CMD ["bunx", "serve", "dist/client", "-l", "7860", "--single"]
+CMD ["serve", "-l", "7860", "--single", "."]

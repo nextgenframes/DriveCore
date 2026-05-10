@@ -1,138 +1,31 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { fetchAIWithFallback, getAIConfig } from "./ai-config.server";
-import { AV_KNOWLEDGE_BASE } from "./av-knowledge.server";
 import { z } from "zod";
 
-const InputSchema = z.object({
-  incidentId: z.string().uuid(),
-});
+const InputSchema = z.object({ incidentId: z.string().uuid() });
+const AI_BASE_URL = process.env.AI_BASE_URL ?? "https://lablab-ai-amd-developer-hackathon-drivecore.hf.space";
 
-type AgentResult = {
-  summary: string;
-  events: string[];
-  rootCauses: string[];
-  complianceFlags: { code: string; description: string; severity: "low" | "medium" | "high" }[];
-  coachingRecommendations: string[];
-  severity: "low" | "medium" | "high" | "critical" | "unknown";
-  reportMarkdown: string;
-};
-
-const analysisTool = {
-  type: "function" as const,
-  function: {
-    name: "submit_analysis",
-    description: "Submit structured AV incident analysis from a multi-agent safety review.",
-    parameters: {
-      type: "object",
-      properties: {
-        summary: { type: "string", description: "2-4 sentence executive summary of the incident." },
-        events: { type: "array", items: { type: "string" }, description: "Key timestamped or sequential events extracted (Event Extraction Agent)." },
-        rootCauses: { type: "array", items: { type: "string" }, description: "Probable root causes (Risk Agent)." },
-        complianceFlags: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              code: { type: "string", description: "Standard / regulation, e.g. NHTSA-AV-4.1.2, ISO 26262, SAE J3016" },
-              description: { type: "string" },
-              severity: { type: "string", enum: ["low", "medium", "high"] },
-            },
-            required: ["code", "description", "severity"],
-            additionalProperties: false,
-          },
-          description: "Compliance concerns identified by the Safety Agent.",
-        },
-        coachingRecommendations: { type: "array", items: { type: "string" }, description: "Operator/engineer coaching actions." },
-        severity: { type: "string", enum: ["low", "medium", "high", "critical", "unknown"] },
-        reportMarkdown: { type: "string", description: "A polished safety report in Markdown for export (Documentation Agent)." },
-      },
-      required: ["summary", "events", "rootCauses", "complianceFlags", "coachingRecommendations", "severity", "reportMarkdown"],
-      additionalProperties: false,
-    },
-  },
-};
-
-const SYSTEM_PROMPT = `You are DriveCore Incident Bot, a multi-agent AI safety analyst powered by Qwen3 reasoning. You orchestrate four specialised agents on every input:
-
-1. EVENT EXTRACTION AGENT — pulls discrete timeline events from logs, transcripts, sensor data, or free-form notes.
-2. SAFETY AGENT — identifies compliance concerns referencing standards (NHTSA AV Policy, ISO 26262, SAE J3016, FMVSS, UN R157) when relevant.
-3. RISK AGENT — identifies probable root causes (sensor failure, perception, planning, control, environmental, operator) or general risk factors.
-4. DOCUMENTATION AGENT — drafts a clean Markdown report with sections (Summary, Timeline, Root Causes, Compliance, Recommendations).
-
-The user may submit ANY free-form text — full incident reports, brief notes, questions, partial logs, or general descriptions. Reason freely with your full intelligence: infer context, fill gaps with plausible domain knowledge, and produce useful analysis even when input is sparse or ambiguous. Mark uncertainty where appropriate. Always call submit_analysis with the structured result.`;
+async function callQwen(input: string): Promise<string> {
+  const resp = await fetch(`${AI_BASE_URL}/triage`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ input }) });
+  const json = await resp.json();
+  return json.output ?? "No analysis returned.";
+}
 
 export const analyzeIncident = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => InputSchema.parse(d))
   .handler(async ({ data }) => {
     const supabase = supabaseAdmin;
-    getAIConfig(); // validates env config early
-
-    const { data: incident, error: fetchErr } = await supabase
-      .from("incidents")
-      .select("*")
-      .eq("id", data.incidentId)
-      .single();
+    const { data: incident, error: fetchErr } = await supabase.from("incidents").select("*").eq("id", data.incidentId).single();
     if (fetchErr || !incident) throw new Response("Incident not found", { status: 404 });
-
     await supabase.from("incidents").update({ status: "analyzing", error: null }).eq("id", data.incidentId);
-
     try {
-      const { data: learnings } = await supabase
-        .from("qwen_learnings")
-        .select("category, content, context")
-        .order("created_at", { ascending: false })
-        .limit(20);
-
-      const learningsBlock = learnings && learnings.length
-        ? `PRIOR LEARNINGS (operator corrections, insights, past errors — apply these going forward):\n${learnings
-            .map((l: any, i: number) => `${i + 1}. [${l.category}] ${l.content}${l.context ? ` (context: ${l.context})` : ""}`)
-            .join("\n")}`
-        : "PRIOR LEARNINGS: (none yet)";
-
       const userContent = `INCIDENT TITLE: ${incident.title}\nSOURCE TYPE: ${incident.source_type}\nFILE: ${incident.file_name ?? "(none)"}\n\n--- RAW INPUT ---\n${incident.raw_text ?? "(no text content provided)"}`;
-
-      const requestBody = JSON.stringify({
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "system", content: AV_KNOWLEDGE_BASE },
-          { role: "system", content: learningsBlock },
-          { role: "user", content: userContent },
-        ],
-        tools: [analysisTool],
-        tool_choice: { type: "function", function: { name: "submit_analysis" } },
-      });
-
-      const resp = await fetchAIWithFallback(requestBody, "google/gemini-2.5-flash", "analyzeIncident");
-
-      if (!resp.ok) {
-        const text = await resp.text();
-        if (resp.status === 429) throw new Error("Rate limit reached. Try again shortly.");
-        if (resp.status === 402) throw new Error("AI credits exhausted. Add credits in Workspace > Usage.");
-        throw new Error(`AI gateway error ${resp.status}: ${text.slice(0, 200)}`);
-      }
-
-      const json = await resp.json();
-      const toolCall = json.choices?.[0]?.message?.tool_calls?.[0];
-      if (!toolCall?.function?.arguments) throw new Error("AI did not return structured analysis.");
-
-      const analysis: AgentResult = JSON.parse(toolCall.function.arguments);
-
-      await supabase
-        .from("incidents")
-        .update({
-          analysis: analysis as any,
-          severity: analysis.severity,
-          status: "complete",
-        })
-        .eq("id", data.incidentId);
-
+      const reportMarkdown = await callQwen(userContent);
+      const analysis = { summary: `Qwen AutoPulse Bot analysis of: ${incident.title}`, events: [], rootCauses: ["See full Qwen report below"], complianceFlags: [], coachingRecommendations: [], severity: "unknown" as const, reportMarkdown };
+      await supabase.from("incidents").update({ analysis: analysis as any, severity: analysis.severity, status: "complete" }).eq("id", data.incidentId);
       return { ok: true, analysis };
     } catch (e: any) {
-      await supabase
-        .from("incidents")
-        .update({ status: "failed", error: e.message ?? "Unknown error" })
-        .eq("id", data.incidentId);
+      await supabase.from("incidents").update({ status: "failed", error: e.message ?? "Unknown error" }).eq("id", data.incidentId);
       throw e;
     }
   });

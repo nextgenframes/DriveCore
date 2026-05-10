@@ -3,5 +3,10 @@
   "name": "drivecore",
   "compatibility_date": "2025-09-24",
   "compatibility_flags": ["nodejs_compat"],
-  "main": "@tanstack/react-start/server-entry"
+  "main": "@tanstack/react-start/server-entry",
+  "vars": {
+    "AI_BASE_URL": "https://lablab-ai-amd-developer-hackathon-drivecore.hf.space",
+    "AI_API_KEY": "dummy",
+    "AI_MODEL": "qwen3"
+  }
 }

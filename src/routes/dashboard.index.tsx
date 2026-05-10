@@ -51,7 +51,7 @@ function IncidentsPage() {
   const rerun = useCallback(async (id: string) => {
     try {
       await analyze({ data: { incidentId: id } });
-      toast.success("Analysis updated");
+      toast.success("Analysis updated"); load(); load();
     } catch (e: any) {
       let msg = e?.message;
       if (e instanceof Response) msg = `${e.status} ${await e.text().catch(() => e.statusText)}`;

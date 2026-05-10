@@ -1,15 +1,22 @@
 {
-	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "drivecore",
-	"compatibility_date": "2025-09-24",
-	"compatibility_flags": [
-		"nodejs_compat"
-	],
-	"main": "@tanstack/react-start/server-entry",
-	"vars": {
-		"AI_BASE_URL": "https://lablab-ai-amd-developer-hackathon-drivecore.hf.space",
-		"AI_API_KEY": "dummy",
-		"AI_MODEL": "qwen3",
-		"SUPABASE_URL": "https://rqljghnthchkdoimicev.supabase.co\n\n"
-	}
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "drivecore",
+  "compatibility_date": "2025-09-24",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "@tanstack/react-start/server-entry",
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": false
+    }
+  },
+  "vars": {
+    "AI_BASE_URL": "https://lablab-ai-amd-developer-hackathon-drivecore.hf.space",
+    "AI_API_KEY": "dummy",
+    "AI_MODEL": "qwen3",
+    "SUPABASE_URL": "https://rqljghnthchkdoimicev.supabase.co"
+  }
 }

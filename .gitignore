@@ -32,3 +32,4 @@ dist-ssr
 *.sw?
 bun.lockb
 bun.lockb
+.env

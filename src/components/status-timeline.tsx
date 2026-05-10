@@ -28,7 +28,7 @@ export function StatusTimeline({ status }: { status: string }) {
       </div>
       <div className="flex items-center gap-2">
         {STAGES.map((stage, i) => {
-          const done = i < currentIdx;
+          const done = i < currentIdx || (current === "completed" && !failed);
           const active = i === currentIdx && !failed && current !== "completed";
           const isFailed = failed && i === 1;
           const Icon = isFailed
